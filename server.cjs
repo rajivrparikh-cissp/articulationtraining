@@ -21,10 +21,39 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
+  // 1. Proxy /api/ollama to local Ollama runtime (127.0.0.1:11434)
+  if (req.url.startsWith('/api/ollama')) {
+    const targetPath = req.url.replace(/^\/api\/ollama/, '') || '/';
+    const proxyHeaders = { ...req.headers, host: '127.0.0.1:11434' };
+
+    const proxyReq = http.request(
+      {
+        hostname: '127.0.0.1',
+        port: 11434,
+        path: targetPath,
+        method: req.method,
+        headers: proxyHeaders
+      },
+      (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        proxyRes.pipe(res, { end: true });
+      }
+    );
+
+    proxyReq.on('error', (err) => {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Ollama local server unreachable on 127.0.0.1:11434', details: err.message }));
+    });
+
+    req.pipe(proxyReq, { end: true });
+    return;
+  }
+
+  // 2. Serve static SPA files
   const urlPath = req.url.split('?')[0];
   let filePath = path.join(DIST_DIR, urlPath);
 
-  // If path doesn't exist or is a directory, fallback to index.html (SPA client-side routing)
+  // Fallback to index.html for SPA client-side routing
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     filePath = path.join(DIST_DIR, 'index.html');
   }

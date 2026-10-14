@@ -7,9 +7,12 @@ import ProgressDashboard from './components/ProgressDashboard';
 import ExecutivePlaybook from './components/ExecutivePlaybook';
 import VocalWarmup from './components/VocalWarmup';
 import MicSelectorModal from './components/MicSelectorModal';
+import CandidateProfileModal from './components/CandidateProfileModal';
 import { CURRICULUM } from './data/curriculum';
 import { getCompletedDays, getTotalMinutes } from './utils/storage';
 import { useAudioDevices } from './utils/useAudioDevices';
+import { getActiveProfile, setActiveProfileId } from './data/candidateProfiles';
+import { checkOllamaHealth } from './utils/ollamaClient';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('studio');
@@ -18,6 +21,9 @@ export default function App() {
   const [totalMinutes, setTotalMinutes] = useState(getTotalMinutes());
   const [warmupOpen, setWarmupOpen] = useState(false);
   const [micModalOpen, setMicModalOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [activeProfile, setActiveProfile] = useState(() => getActiveProfile());
+  const [ollamaOnline, setOllamaOnline] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
   const [fontScale, setFontScale] = useState(1.0); // 1.0 (100%), 1.25, 1.5, 2.0 (200%)
 
@@ -28,6 +34,13 @@ export default function App() {
     const completed = getCompletedDays();
     setCompletedDays(completed);
     setTotalMinutes(getTotalMinutes());
+
+    // Check Ollama LLaMA 3.2 connectivity
+    checkOllamaHealth().then((health) => {
+      setOllamaOnline(health.online);
+    }).catch(() => {
+      setOllamaOnline(false);
+    });
   }, []);
 
   const handleDaySelect = (dayNum) => {
@@ -40,6 +53,11 @@ export default function App() {
     const updated = getCompletedDays();
     setCompletedDays([...updated]);
     setTotalMinutes(getTotalMinutes());
+  };
+
+  const handleSelectProfile = (profile) => {
+    setActiveProfile(profile);
+    setActiveProfileId(profile.id);
   };
 
   const currentDayData = CURRICULUM.find((d) => d.day === currentDayNumber) || CURRICULUM[0];
@@ -72,6 +90,9 @@ export default function App() {
         onOpenMicSettings={() => setMicModalOpen(true)}
         selectedDeviceLabel={selectedDeviceLabel}
         deviceCount={audioDevices.devices.length}
+        onOpenProfileModal={() => setProfileModalOpen(true)}
+        activeProfile={activeProfile}
+        ollamaOnline={ollamaOnline}
       />
 
       {/* Main Tab Content */}
@@ -89,6 +110,8 @@ export default function App() {
             devices={audioDevices.devices}
             onSelectDevice={audioDevices.setSelectedDeviceId}
             onOpenMicSettings={() => setMicModalOpen(true)}
+            activeProfile={activeProfile}
+            onOpenProfileModal={() => setProfileModalOpen(true)}
           />
         )}
 
@@ -102,6 +125,8 @@ export default function App() {
             devices={audioDevices.devices}
             onSelectDevice={audioDevices.setSelectedDeviceId}
             onOpenMicSettings={() => setMicModalOpen(true)}
+            activeProfile={activeProfile}
+            onOpenProfileModal={() => setProfileModalOpen(true)}
           />
         )}
 
@@ -120,6 +145,15 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Candidate Profile & Target Role Dossier Modal */}
+      <CandidateProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        activeProfile={activeProfile}
+        onSelectProfile={handleSelectProfile}
+        highContrast={highContrast}
+      />
 
       {/* Hardware Microphone Diagnostics & Device Selection Modal */}
       <MicSelectorModal
@@ -157,7 +191,7 @@ export default function App() {
             If you want to just look busy, read books. But to take leadership jobs as VP or Director, train your speaking skills. 9 minutes a day for 28 days.
           </p>
           <div className="pt-2 text-[11px] text-slate-500 font-mono">
-            ExecutiveVoice • WCAG 2.2 AAA Compliant • Minimum 56x56px Tap Targets • 7:1+ Contrast
+            ExecutiveVoice • Calibrated for {activeProfile.title} • Local LLaMA 3.2 Second Brain
           </div>
         </div>
       </footer>
@@ -165,3 +199,4 @@ export default function App() {
     </div>
   );
 }
+

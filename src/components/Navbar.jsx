@@ -6,9 +6,11 @@ import {
   Award, 
   Sliders, 
   Flame,
-  Volume2,
-  Sun,
-  Type
+  Volume2, 
+  Sun, 
+  Type,
+  Cpu,
+  User
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -24,7 +26,10 @@ export default function Navbar({
   setFontScale,
   onOpenMicSettings,
   selectedDeviceLabel,
-  deviceCount = 1
+  deviceCount = 1,
+  onOpenProfileModal,
+  activeProfile,
+  ollamaOnline = false
 }) {
   const tabs = [
     { id: 'studio', label: '9-Min Daily Sprint', icon: Mic, badge: `Day ${currentDay}` },
@@ -69,11 +74,11 @@ export default function Navbar({
                   Executive<span className="text-amber-400">Voice</span>
                 </span>
                 <span className="hidden sm:inline-block px-2.5 py-0.5 text-[11px] font-bold tracking-wider uppercase bg-amber-400/20 text-amber-300 border border-amber-400/40 rounded-full">
-                  VP & Director
+                  {activeProfile?.badge || 'VP & Director'}
                 </span>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
-                9 Minutes / Day • 28 Days to Command the Room
+                {activeProfile?.company ? `Target: ${activeProfile.company}` : '9 Mins / Day • Command the Room'}
               </p>
             </div>
           </div>
@@ -81,6 +86,32 @@ export default function Navbar({
           {/* Accessibility Controls & Hardware Diagnostics (WCAG AAA) */}
           <div className="flex items-center space-x-2 sm:space-x-3">
             
+            {/* Target Role & LLaMA Second Brain Dossier Button */}
+            <button
+              onClick={onOpenProfileModal}
+              className={`flex items-center justify-center min-h-[56px] px-3.5 sm:px-4 rounded-2xl border-2 transition-all cursor-pointer font-bold text-xs ${
+                highContrast
+                  ? 'bg-black hover:bg-slate-900 border-white text-white'
+                  : 'bg-slate-900 hover:bg-slate-800 border-amber-500/40 hover:border-amber-400 text-slate-200 hover:text-white'
+              }`}
+              title="Candidate Dossier & Target Role Settings"
+              aria-label={`Target Role: ${activeProfile?.title || 'VP Information Security'}`}
+            >
+              <div className="relative mr-2 flex-shrink-0">
+                <Cpu className="w-4 h-4 text-amber-400" />
+                <span className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${ollamaOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+              </div>
+              <div className="text-left hidden sm:block max-w-[120px] md:max-w-[150px] truncate">
+                <span className="block text-[10px] text-amber-400 uppercase font-semibold leading-none">
+                  {activeProfile?.badge || 'Role'} • LLaMA
+                </span>
+                <span className="block text-xs font-bold text-white truncate leading-tight mt-0.5">
+                  {activeProfile?.company || 'Target Role'}
+                </span>
+              </div>
+              <span className="sm:hidden text-xs">Role</span>
+            </button>
+
             {/* Microphone Selector & Live Test (Placed before T 100% toggle per user specification) */}
             <button
               onClick={onOpenMicSettings}
@@ -96,7 +127,7 @@ export default function Navbar({
                 <Mic className="w-4 h-4 text-amber-400" />
                 <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               </div>
-              <div className="text-left hidden sm:block max-w-[130px] md:max-w-[160px] truncate">
+              <div className="text-left hidden sm:block max-w-[110px] md:max-w-[130px] truncate">
                 <span className="block text-[10px] text-slate-400 uppercase font-semibold leading-none">
                   Mic ({deviceCount})
                 </span>

@@ -22,12 +22,15 @@ import {
   Sliders,
   Radio,
   Edit3,
-  Check
+  Check,
+  Cpu,
+  RefreshCw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { soundEngine, analyzeTranscript } from '../utils/audioUtils';
 import { saveCompletedDay, saveDayNotes, getDayNotes } from '../utils/storage';
 import { getMicrophoneStream } from '../utils/useAudioDevices';
+import { streamExecutiveAudit } from '../utils/ollamaClient';
 
 const PHASES = [
   {
@@ -70,7 +73,9 @@ export default function DailyStudio({
   selectedDeviceId = '',
   devices = [],
   onSelectDevice,
-  onOpenMicSettings
+  onOpenMicSettings,
+  activeProfile,
+  onOpenProfileModal
 }) {
   const [totalSeconds, setTotalSeconds] = useState(0); // 0 to 540 seconds (9 mins)
   const [timerRunning, setTimerRunning] = useState(false);
@@ -87,6 +92,9 @@ export default function DailyStudio({
   const [voiceActivityDetected, setVoiceActivityDetected] = useState(false);
   const [isEditingTranscript, setIsEditingTranscript] = useState(false);
   const [manualTranscriptInput, setManualTranscriptInput] = useState('');
+  const [customPrompt, setCustomPrompt] = useState(null);
+  const [llamaCritique, setLlamaCritique] = useState('');
+  const [isAuditingWithLlama, setIsAuditingWithLlama] = useState(false);
   const isRecordingRef = useRef(false);
   const recordingStartTimeRef = useRef(0);
   
@@ -397,6 +405,37 @@ export default function DailyStudio({
   const timeFormatted = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   const progressPercent = Math.min(100, Math.round((totalSeconds / 540) * 100));
 
+  const activePromptText = customPrompt || dayData.practicePrompt;
+
+  const handleRunLlamaAudit = () => {
+    setIsAuditingWithLlama(true);
+    setLlamaCritique('');
+
+    streamExecutiveAudit({
+      profile: activeProfile || {
+        company: "Target Enterprise",
+        title: "Vice President / Director",
+        altitude: "Executive Leader",
+        rubricFocus: [
+          "Executive Altitude & Commercial Framing",
+          "PREP Thought Structure",
+          "Decisive Risk Ownership"
+        ]
+      },
+      candidateDna: null,
+      prompt: activePromptText,
+      transcript: fullText,
+      onToken: (text) => setLlamaCritique(text),
+      onComplete: (finalText) => {
+        setLlamaCritique(finalText);
+        setIsAuditingWithLlama(false);
+      },
+      onError: (err) => {
+        setIsAuditingWithLlama(false);
+      }
+    });
+  };
+
   return (
     <div 
       className={`max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 ${
@@ -704,13 +743,41 @@ export default function DailyStudio({
               </span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
-              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block mb-1">
-                Today's Speaking Prompt:
-              </span>
-              <p className="text-sm font-semibold text-white leading-relaxed">
-                {dayData.practicePrompt}
-              </p>
+            {/* Target Role & Speaking Prompt Container */}
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs pb-1 border-b border-slate-800/80">
+                <span className="font-bold uppercase tracking-wider text-amber-400 flex items-center space-x-1.5">
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span>Target: {activeProfile?.title || 'VP Information Security'}</span>
+                </span>
+                {onOpenProfileModal && (
+                  <button
+                    onClick={onOpenProfileModal}
+                    className="text-slate-400 hover:text-amber-300 text-[11px] font-bold cursor-pointer transition-colors"
+                  >
+                    Switch Target Role
+                  </button>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">
+                    {customPrompt ? "⚡ Boardroom Curveball Follow-Up Prompt:" : "Today's Speaking Prompt:"}
+                  </span>
+                  {customPrompt && (
+                    <button
+                      onClick={() => setCustomPrompt(null)}
+                      className="text-[11px] text-slate-400 hover:text-amber-300 underline cursor-pointer"
+                    >
+                      Reset to Day's Curriculum
+                    </button>
+                  )}
+                </div>
+                <p className="text-sm font-semibold text-white leading-relaxed">
+                  {activePromptText}
+                </p>
+              </div>
             </div>
 
             {/* Microphone Hardware Selector & Live Input VU Level Bar */}
@@ -987,6 +1054,66 @@ export default function DailyStudio({
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* LLaMA 3.2 Second Brain Executive Panel Audit */}
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-slate-950 to-slate-950 border-2 border-amber-500/40 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <div className="flex items-center space-x-2">
+                  <Cpu className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-300">
+                    LLaMA 3.2 Second Brain • Executive Panel Audit
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400 font-bold">
+                  {activeProfile?.badge || activeProfile?.company}
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-300">
+                Run an offline, private AI evaluation calibrated for <strong>{activeProfile?.title}</strong> at <strong>{activeProfile?.company}</strong>.
+              </p>
+
+              {!llamaCritique && !isAuditingWithLlama && (
+                <button
+                  onClick={handleRunLlamaAudit}
+                  disabled={!fullText}
+                  className={`w-full min-h-[52px] flex items-center justify-center space-x-2.5 px-5 py-3 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                    fullText
+                      ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-lg shadow-amber-400/20'
+                      : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                  }`}
+                >
+                  <Cpu className="w-4 h-4" />
+                  <span>Audit My Answer with LLaMA 3.2 ({activeProfile?.company})</span>
+                </button>
+              )}
+
+              {isAuditingWithLlama && (
+                <div className="p-4 rounded-xl bg-slate-900 border border-amber-400/30 text-xs text-amber-200 flex items-center space-x-3">
+                  <RefreshCw className="w-4 h-4 text-amber-400 animate-spin" />
+                  <span>Evaluating answer with local LLaMA 3.2 against {activeProfile?.altitude} rubric...</span>
+                </div>
+              )}
+
+              {llamaCritique && (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200 leading-relaxed space-y-2 whitespace-pre-wrap font-sans">
+                    {llamaCritique}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      onClick={handleRunLlamaAudit}
+                      disabled={isAuditingWithLlama}
+                      className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold inline-flex items-center space-x-1.5 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Re-Audit with LLaMA</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Complete Day Button (Minimum 56px Tap Target) */}

@@ -28,12 +28,15 @@ import {
   MOCK_INTERVIEW_QUESTIONS 
 } from '../data/curriculum';
 import { getMicrophoneStream } from '../utils/useAudioDevices';
+import { streamExecutiveAudit } from '../utils/ollamaClient';
 
 export default function VoiceStudio({
   selectedDeviceId = '',
   devices = [],
   onSelectDevice,
-  onOpenMicSettings
+  onOpenMicSettings,
+  activeProfile,
+  onOpenProfileModal
 }) {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -42,6 +45,8 @@ export default function VoiceStudio({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [liveAudioLevel, setLiveAudioLevel] = useState(0);
   const [voiceDetected, setVoiceDetected] = useState(false);
+  const [llamaAudit, setLlamaAudit] = useState('');
+  const [isAuditingLlama, setIsAuditingLlama] = useState(false);
 
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
@@ -191,6 +196,35 @@ export default function VoiceStudio({
   const activeText = (transcript || customText).trim();
   const analysis = analyzeTranscript(activeText, Math.max(1, elapsedSeconds));
   const sc = analysis.scorecard;
+
+  const handleRunLlamaAudit = () => {
+    setIsAuditingLlama(true);
+    setLlamaAudit('');
+
+    streamExecutiveAudit({
+      profile: activeProfile || {
+        company: "Target Enterprise",
+        title: "Vice President / Director",
+        altitude: "Executive Leader",
+        rubricFocus: [
+          "Executive Altitude & Commercial Framing",
+          "PREP Thought Structure",
+          "Decisive Risk Ownership"
+        ]
+      },
+      candidateDna: null,
+      prompt: selectedQuestion.question,
+      transcript: activeText,
+      onToken: (text) => setLlamaAudit(text),
+      onComplete: (finalText) => {
+        setLlamaAudit(finalText);
+        setIsAuditingLlama(false);
+      },
+      onError: (err) => {
+        setIsAuditingLlama(false);
+      }
+    });
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
@@ -372,6 +406,62 @@ export default function VoiceStudio({
                 className="w-full h-36 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 placeholder-slate-600 focus:ring-1 focus:ring-amber-500 focus:border-amber-500 resize-none leading-relaxed"
               />
             </div>
+          </div>
+
+          {/* LLaMA 3.2 Second Brain Executive Audit */}
+          <div className="bg-gradient-to-r from-amber-500/10 via-slate-900 to-slate-900 border border-amber-500/30 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-300 flex items-center space-x-1.5">
+                <Cpu className="w-3.5 h-3.5 text-amber-400" />
+                <span>Audit with LLaMA 3.2 ({activeProfile?.badge || activeProfile?.company || 'Target Role'})</span>
+              </span>
+              {onOpenProfileModal && (
+                <button
+                  onClick={onOpenProfileModal}
+                  className="text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
+                >
+                  Switch Role
+                </button>
+              )}
+            </div>
+
+            {!llamaAudit && !isAuditingLlama && (
+              <button
+                onClick={handleRunLlamaAudit}
+                disabled={!activeText}
+                className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs transition-colors flex items-center justify-center space-x-2 cursor-pointer ${
+                  activeText
+                    ? 'bg-amber-400 text-slate-950 hover:bg-amber-300 shadow-md shadow-amber-400/20'
+                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                }`}
+              >
+                <Cpu className="w-4 h-4" />
+                <span>Consult LLaMA 3.2 Second Brain on this Answer</span>
+              </button>
+            )}
+
+            {isAuditingLlama && (
+              <div className="p-3 rounded-xl bg-slate-950 border border-amber-400/30 text-xs text-amber-200 flex items-center space-x-2">
+                <RefreshCw className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                <span>Consulting LLaMA 3.2 Second Brain offline...</span>
+              </div>
+            )}
+
+            {llamaAudit && (
+              <div className="space-y-2">
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 leading-relaxed space-y-2 whitespace-pre-wrap font-sans">
+                  {llamaAudit}
+                </div>
+                <button
+                  onClick={handleRunLlamaAudit}
+                  disabled={isAuditingLlama}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold inline-flex items-center space-x-1 cursor-pointer"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Re-run Audit</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Quick Vocabulary Upgrades */}
