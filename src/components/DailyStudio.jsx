@@ -16,7 +16,9 @@ import {
   Volume2, 
   Flame,
   ArrowRight,
-  Download
+  ShieldCheck,
+  Target,
+  Zap
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { soundEngine, analyzeTranscript } from '../utils/audioUtils';
@@ -30,7 +32,7 @@ const PHASES = [
     startSec: 0,
     endSec: 120,
     description: "Organize your mental outline before vocalizing. Do not write a word-for-word script. Pick 3 strategic bullets.",
-    actionPrompt: "Read the framework and today's Manager vs. Leader comparison below. Formulate your 3 core bullet points."
+    actionPrompt: "Read the framework below. Formulate your 3 core bullet points."
   },
   {
     id: 2,
@@ -38,8 +40,8 @@ const PHASES = [
     timeRange: "2:00 - 6:00",
     startSec: 120,
     endSec: 360,
-    description: "Hit record. Deliver your answer out loud into the microphone. Maintain steady 130 WPM and grounded chest resonance.",
-    actionPrompt: "Click 'Start Mic Practice' and answer today's prompt. Eliminate filler words and verbal hedging."
+    description: "Hit record. Deliver your answer out loud into the microphone. Maintain steady 135–155 WPM and grounded chest resonance.",
+    actionPrompt: "Click 'Start Practice Recording' and answer today's prompt. Eliminate filler words and verbal hedging."
   },
   {
     id: 3,
@@ -47,8 +49,8 @@ const PHASES = [
     timeRange: "6:00 - 9:00",
     startSec: 360,
     endSec: 540,
-    description: "Listen to your recording or review the transcript. Score yourself honestly against the 4 Executive Pillars.",
-    actionPrompt: "Audit your delivery: Did you deliver the headline in the first 5 seconds? Did you speak from the diaphragm?"
+    description: "Review your clear milestones. Did you deliver the headline in the first 5 seconds? Did you speak with zero defensive hedging?",
+    actionPrompt: "Audit your delivery against clear plain-English executive milestones."
   }
 ];
 
@@ -57,7 +59,9 @@ export default function DailyStudio({
   onSelectDay, 
   isCompleted, 
   onDayCompleted, 
-  totalDays 
+  totalDays,
+  highContrast = false,
+  fontScale = 1.0
 }) {
   const [totalSeconds, setTotalSeconds] = useState(0); // 0 to 540 seconds (9 mins)
   const [timerRunning, setTimerRunning] = useState(false);
@@ -65,6 +69,7 @@ export default function DailyStudio({
   
   // Audio & Speech Recording
   const [isRecording, setIsRecording] = useState(false);
+  const [prepCountdown, setPrepCountdown] = useState(null); // null | 3 | 2 | 1
   const [audioUrl, setAudioUrl] = useState(null);
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
@@ -99,6 +104,7 @@ export default function DailyStudio({
     setCurrentPhaseIndex(0);
     setTranscript('');
     setAudioUrl(null);
+    setPrepCountdown(null);
   }, [dayData.day]);
 
   // Timer loop
@@ -109,7 +115,6 @@ export default function DailyStudio({
         setTotalSeconds((prev) => {
           const next = prev + 1;
           
-          // Phase checks
           if (next === 120 && currentPhaseIndex === 0) {
             setCurrentPhaseIndex(1);
             soundEngine.playExecutiveChime('phase');
@@ -158,10 +163,6 @@ export default function DailyStudio({
       setInterimTranscript(currentInterim);
     };
 
-    recognition.onerror = () => {
-      // Graceful fallback
-    };
-
     recognitionRef.current = recognition;
 
     return () => {
@@ -182,10 +183,10 @@ export default function DailyStudio({
 
     const render = () => {
       analyser.getByteTimeDomainData(dataArray);
-      ctx.fillStyle = '#0f172a';
+      ctx.fillStyle = highContrast ? '#000000' : '#070a12';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 3.0;
+      ctx.strokeStyle = '#fbbf24';
       ctx.beginPath();
 
       const sliceWidth = (canvas.width * 1.0) / bufferLength;
@@ -211,15 +212,34 @@ export default function DailyStudio({
     render();
   };
 
+  // 3-Second Preparation Countdown Trigger
+  const triggerRecordingWithCountdown = () => {
+    soundEngine.playExecutiveChime('start');
+    setPrepCountdown(3);
+
+    const timer = setInterval(() => {
+      setPrepCountdown((prev) => {
+        if (prev === 3) return 2;
+        if (prev === 2) return 1;
+        if (prev === 1) {
+          clearInterval(timer);
+          setPrepCountdown(null);
+          executeStartRecording();
+          return null;
+        }
+        return null;
+      });
+    }, 1000);
+  };
+
   // Start Mic Recording
-  const startRecording = async () => {
+  const executeStartRecording = async () => {
     try {
       soundEngine.init();
       audioChunksRef.current = [];
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      // Audio visualizer setup
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       const audioCtx = new AudioCtx();
       audioContextRef.current = audioCtx;
@@ -231,7 +251,6 @@ export default function DailyStudio({
 
       drawWaveform();
 
-      // MediaRecorder
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
 
@@ -250,7 +269,6 @@ export default function DailyStudio({
       mediaRecorder.start(250);
       setIsRecording(true);
 
-      // Start recognition if supported
       if (recognitionRef.current) {
         try {
           recognitionRef.current.start();
@@ -261,7 +279,7 @@ export default function DailyStudio({
         setTimerRunning(true);
       }
     } catch {
-      alert("Microphone permission was denied or is unavailable. You can still practice speaking out loud!");
+      alert("Microphone permission denied. You can still practice speaking out loud!");
     }
   };
 
@@ -282,6 +300,7 @@ export default function DailyStudio({
       cancelAnimationFrame(animationFrameRef.current);
     }
     setIsRecording(false);
+    soundEngine.playExecutiveChime('phase');
   };
 
   const handleNotesChange = (e) => {
@@ -303,7 +322,8 @@ export default function DailyStudio({
 
   // Calculated analysis
   const fullText = (transcript + ' ' + interimTranscript).trim();
-  const analysis = analyzeTranscript(fullText);
+  const analysis = analyzeTranscript(fullText, Math.max(1, totalSeconds));
+  const sc = analysis.scorecard;
 
   // Minutes and seconds formatting
   const mins = Math.floor(totalSeconds / 60);
@@ -312,26 +332,71 @@ export default function DailyStudio({
   const progressPercent = Math.min(100, Math.round((totalSeconds / 540) * 100));
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+    <div 
+      className={`max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 ${
+        highContrast ? 'text-white' : 'text-slate-100'
+      }`}
+      style={{ fontSize: `${fontScale}rem` }}
+    >
       
+      {/* ==================================================================== */}
+      {/* ZERO-CONFUSION PRIMARY HERO ACTION (Single primary action per screen) */}
+      {/* ==================================================================== */}
+      {!timerRunning && totalSeconds === 0 && (
+        <div className={`p-8 rounded-3xl border-2 text-center space-y-4 shadow-2xl transition-all ${
+          highContrast
+            ? 'bg-black border-amber-400'
+            : 'bg-gradient-to-r from-amber-500/20 via-slate-900 to-amber-950/20 border-amber-400/40'
+        }`}>
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold uppercase tracking-wider">
+            <Sparkles className="w-4 h-4" />
+            <span>Today's Focused Leadership Sprint</span>
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-white font-display">
+            Day {dayData.day}: {dayData.title}
+          </h2>
+
+          <p className="text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
+            "{dayData.tagline}"
+          </p>
+
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                soundEngine.playExecutiveChime('start');
+                setTimerRunning(true);
+              }}
+              className="inline-flex items-center justify-center space-x-3 min-h-[64px] min-w-[280px] px-8 py-4 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-lg shadow-2xl shadow-amber-400/30 transition-all hover:scale-102 cursor-pointer"
+              aria-label="Start Today's 9-Minute Sprint"
+            >
+              <Play className="w-6 h-6 fill-slate-950" />
+              <span>Start Today’s 9-Minute Sprint</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Day Header & Navigation Bar */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-6 bg-slate-900/70 border border-slate-800 rounded-2xl backdrop-blur-xl">
+      <div className={`flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-6 border-2 rounded-2xl backdrop-blur-xl ${
+        highContrast ? 'bg-black border-slate-700' : 'bg-slate-900/80 border-slate-800'
+      }`}>
         <div className="space-y-1">
           <div className="flex items-center space-x-3">
-            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-400 text-slate-950 font-display">
+            <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-400 text-slate-950 font-display">
               Day {dayData.day} of {totalDays}
             </span>
-            <span className="text-xs text-slate-400 font-medium">
+            <span className="text-xs text-slate-300 font-bold">
               Week {dayData.week} • {dayData.category}
             </span>
             {isCompleted && (
-              <span className="flex items-center space-x-1 text-xs text-emerald-400 font-medium bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                <CheckCircle className="w-3.5 h-3.5" />
+              <span className="flex items-center space-x-1 text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                <CheckCircle className="w-4 h-4" />
                 <span>Completed</span>
               </span>
             )}
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-display">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-display">
             {dayData.title}
           </h1>
           <p className="text-sm text-slate-300 italic">
@@ -339,21 +404,23 @@ export default function DailyStudio({
           </p>
         </div>
 
-        {/* Day Jump Controls */}
+        {/* Day Jump Controls (Min 56px Tap Target) */}
         <div className="flex items-center space-x-2 w-full md:w-auto justify-end">
           <button
             onClick={() => onSelectDay(Math.max(1, dayData.day - 1))}
             disabled={dayData.day === 1}
-            className="p-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="min-h-[56px] min-w-[56px] flex items-center justify-center rounded-2xl bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border border-slate-700 cursor-pointer"
             title="Previous Day"
+            aria-label="Previous Day"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-6 h-6" />
           </button>
           
           <select
             value={dayData.day}
             onChange={(e) => onSelectDay(Number(e.target.value))}
-            className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-xl px-3 py-2 focus:ring-amber-500 focus:border-amber-500"
+            className="min-h-[56px] bg-slate-800 border-2 border-slate-700 text-white font-bold text-sm rounded-2xl px-4 py-2 focus:ring-4 focus:ring-amber-400"
+            aria-label="Select Training Day"
           >
             {Array.from({ length: totalDays }, (_, i) => i + 1).map((d) => (
               <option key={d} value={d}>
@@ -365,47 +432,52 @@ export default function DailyStudio({
           <button
             onClick={() => onSelectDay(Math.min(totalDays, dayData.day + 1))}
             disabled={dayData.day === totalDays}
-            className="p-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="min-h-[56px] min-w-[56px] flex items-center justify-center rounded-2xl bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border border-slate-700 cursor-pointer"
             title="Next Day"
+            aria-label="Next Day"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-6 h-6" />
           </button>
         </div>
       </div>
 
       {/* 9-Minute Protocol HUD Timer */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 p-6 sm:p-8 shadow-2xl">
+      <div className={`relative overflow-hidden rounded-3xl border-2 p-6 sm:p-8 shadow-2xl ${
+        highContrast ? 'bg-black border-slate-700' : 'bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800'
+      }`}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-800">
           
-          {/* Main Digital Clock & Controls */}
+          {/* Main Digital Clock & Controls (Minimum 56px Tap Targets) */}
           <div className="flex items-center space-x-6">
             <div className="flex items-baseline space-x-2">
               <span className="text-5xl sm:text-6xl font-black font-mono tracking-tight text-white">
                 {timeFormatted}
               </span>
-              <span className="text-sm font-semibold text-slate-500 uppercase">
+              <span className="text-sm font-bold text-slate-400 uppercase">
                 / 09:00
               </span>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               {!timerRunning ? (
                 <button
                   onClick={() => {
                     soundEngine.playExecutiveChime('start');
                     setTimerRunning(true);
                   }}
-                  className="flex items-center space-x-2 px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-sm shadow-lg shadow-amber-400/20 transition-all hover:scale-102"
+                  className="flex items-center space-x-2 min-h-[56px] px-6 py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm shadow-xl shadow-amber-400/25 transition-all hover:scale-102 cursor-pointer"
+                  aria-label="Start 9-Minute Timer"
                 >
-                  <Play className="w-4 h-4 fill-slate-950" />
-                  <span>Start 9 Mins</span>
+                  <Play className="w-5 h-5 fill-slate-950" />
+                  <span>Resume Timer</span>
                 </button>
               ) : (
                 <button
                   onClick={() => setTimerRunning(false)}
-                  className="flex items-center space-x-2 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm transition-colors"
+                  className="flex items-center space-x-2 min-h-[56px] px-6 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm transition-colors border border-slate-700 cursor-pointer"
+                  aria-label="Pause Timer"
                 >
-                  <Pause className="w-4 h-4" />
+                  <Pause className="w-5 h-5" />
                   <span>Pause Timer</span>
                 </button>
               )}
@@ -416,25 +488,25 @@ export default function DailyStudio({
                   setTotalSeconds(0);
                   setCurrentPhaseIndex(0);
                 }}
-                className="p-3 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                className="min-h-[56px] min-w-[56px] flex items-center justify-center rounded-2xl bg-slate-800/80 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors border border-slate-700 cursor-pointer"
                 title="Reset Timer"
+                aria-label="Reset Timer"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-5 h-5" />
               </button>
             </div>
           </div>
 
-          {/* Core Daily Target Callout */}
-          <div className="flex items-center space-x-3 text-xs sm:text-sm text-slate-300 bg-slate-900/90 px-4 py-3 rounded-xl border border-slate-800">
-            <Clock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+          <div className="flex items-center space-x-3 text-sm text-slate-300 bg-slate-950 px-4 py-3 rounded-2xl border border-slate-800">
+            <Clock className="w-5 h-5 text-amber-400 flex-shrink-0" />
             <span>
-              <strong>Today's Standard: </strong> 
+              <strong className="text-white">Today's Standard: </strong> 
               {dayData.objective}
             </span>
           </div>
         </div>
 
-        {/* 3-Phase Progression Tracker */}
+        {/* 3-Phase Progression Tracker (Minimum 56px Tap Target) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6">
           {PHASES.map((phase, idx) => {
             const isCurrent = currentPhaseIndex === idx;
@@ -447,28 +519,31 @@ export default function DailyStudio({
                   setCurrentPhaseIndex(idx);
                   setTotalSeconds(phase.startSec);
                 }}
-                className={`cursor-pointer p-4 rounded-xl border transition-all ${
+                className={`cursor-pointer min-h-[56px] p-5 rounded-2xl border-2 transition-all ${
                   isCurrent
-                    ? 'bg-amber-500/10 border-amber-500/40 shadow-lg shadow-amber-500/5 ring-1 ring-amber-500/20'
+                    ? 'bg-amber-400/15 border-amber-400 shadow-xl shadow-amber-400/10'
                     : isDone
-                    ? 'bg-slate-900/60 border-emerald-500/30'
-                    : 'bg-slate-950/40 border-slate-800/60 opacity-60'
+                    ? 'bg-slate-950 border-emerald-500/40'
+                    : 'bg-slate-950/60 border-slate-800 opacity-70'
                 }`}
+                role="button"
+                tabIndex={0}
+                aria-label={`${phase.name} (${phase.timeRange})`}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className={`text-xs font-bold uppercase tracking-wider ${isCurrent ? 'text-amber-400' : isDone ? 'text-emerald-400' : 'text-slate-400'}`}>
+                  <span className={`text-xs font-black uppercase tracking-wider ${isCurrent ? 'text-amber-400' : isDone ? 'text-emerald-400' : 'text-slate-400'}`}>
                     {phase.timeRange}
                   </span>
                   {isDone ? (
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    <CheckCircle className="w-5 h-5 text-emerald-400" />
                   ) : isCurrent ? (
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                    <span className="w-3 h-3 rounded-full bg-amber-400 animate-ping" />
                   ) : null}
                 </div>
-                <h4 className="text-sm font-bold text-white mb-1">
+                <h4 className="text-base font-extrabold text-white mb-1">
                   {phase.name}
                 </h4>
-                <p className="text-xs text-slate-400 leading-snug">
+                <p className="text-xs text-slate-300 leading-relaxed">
                   {phase.description}
                 </p>
               </div>
@@ -477,7 +552,7 @@ export default function DailyStudio({
         </div>
 
         {/* Top Progress Line */}
-        <div className="w-full bg-slate-800 h-1.5 rounded-full mt-6 overflow-hidden">
+        <div className="w-full bg-slate-800 h-2 rounded-full mt-6 overflow-hidden">
           <div 
             className="bg-gradient-to-r from-amber-500 to-amber-300 h-full transition-all duration-300"
             style={{ width: `${progressPercent}%` }}
@@ -488,17 +563,17 @@ export default function DailyStudio({
       {/* Main Interactive Work Area */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* Left Column: Educational Content & Contrast (7 cols) */}
-        <div className="lg:col-span-7 space-y-6">
+        {/* Left Column: Educational Content & Contrast (6 cols) */}
+        <div className="lg:col-span-6 space-y-6">
           
           {/* Framework Breakdown */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6">
+          <div className="bg-slate-900/80 border-2 border-slate-800 rounded-3xl p-6 sm:p-8">
             <div className="flex items-center space-x-2 text-amber-400 text-xs font-bold uppercase tracking-wider mb-3">
               <BookOpen className="w-4 h-4" />
               <span>Today's Executive Framework</span>
             </div>
             
-            <h3 className="text-xl font-bold text-white mb-2 font-display">
+            <h3 className="text-2xl font-bold text-white mb-2 font-display">
               {dayData.framework.name}
             </h3>
             <p className="text-sm text-slate-300 mb-6 leading-relaxed">
@@ -507,11 +582,11 @@ export default function DailyStudio({
 
             <div className="space-y-3">
               {dayData.framework.steps.map((step, idx) => (
-                <div key={idx} className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
-                  <h4 className="text-sm font-semibold text-amber-300 mb-1">
+                <div key={idx} className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
+                  <h4 className="text-sm font-bold text-amber-300 mb-1">
                     {step.name}
                   </h4>
-                  <p className="text-xs text-slate-400 leading-relaxed">
+                  <p className="text-xs text-slate-300 leading-relaxed">
                     {step.desc}
                   </p>
                 </div>
@@ -520,246 +595,219 @@ export default function DailyStudio({
           </div>
 
           {/* Manager vs Leader Reality Check */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center space-x-2 font-display">
+          <div className="bg-slate-900/80 border-2 border-slate-800 rounded-3xl p-6 sm:p-8 space-y-4">
+            <h3 className="text-xl font-bold text-white flex items-center space-x-2 font-display">
               <Sparkles className="w-5 h-5 text-amber-400" />
-              <span>Manager vs. Executive Leader Comparison</span>
+              <span>Manager vs. Executive Comparison</span>
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Weak Manager Answer */}
-              <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-900/30">
-                <div className="flex items-center space-x-2 text-rose-400 text-xs font-bold uppercase tracking-wider mb-2">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span>❌ Weak Manager (Rambling / Weeds)</span>
-                </div>
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-rose-950/30 border-2 border-rose-900/40">
+                <span className="text-rose-400 text-xs font-black uppercase tracking-wider block mb-1">
+                  ❌ Weak Manager (Rambling / Weeds)
+                </span>
                 <p className="text-xs text-rose-200/90 leading-relaxed italic">
                   "{dayData.managerVsLeader.manager}"
                 </p>
               </div>
 
-              {/* High-Caliber Leader Answer */}
-              <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-900/40">
-                <div className="flex items-center space-x-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  <span>✅ High-Impact VP/Director Anchor</span>
-                </div>
+              <div className="p-4 rounded-2xl bg-emerald-950/30 border-2 border-emerald-900/50">
+                <span className="text-emerald-400 text-xs font-black uppercase tracking-wider block mb-1">
+                  ✅ High-Impact VP/Director Anchor
+                </span>
                 <p className="text-xs text-emerald-200/90 leading-relaxed font-medium">
                   "{dayData.managerVsLeader.leader}"
                 </p>
               </div>
             </div>
-
-            {/* Key Watchouts */}
-            <div className="mt-5 pt-4 border-t border-slate-800">
-              <h5 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                Executive Trapdoors to Avoid Today:
-              </h5>
-              <ul className="space-y-1.5 text-xs text-slate-400">
-                {dayData.keyWatchouts.map((w, idx) => (
-                  <li key={idx} className="flex items-start space-x-2">
-                    <span className="text-amber-400 font-bold">•</span>
-                    <span>{w}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
           </div>
 
         </div>
 
-        {/* Right Column: Live Articulation & Mic Practice (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
+        {/* Right Column: Live Articulation Studio & Actionable Milestones (6 cols) */}
+        <div className="lg:col-span-6 space-y-6">
           
           {/* Practice Prompt & Live Mic Studio */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
+          <div className="bg-slate-900/90 border-2 border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <span className="text-xs font-black uppercase tracking-wider text-amber-400">
                 Vocal Practice Station
               </span>
-              <span className="text-xs text-slate-400 font-medium">
+              <span className="text-xs text-slate-300 font-bold">
                 Target: 90s - 120s
               </span>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 mb-5">
-              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                Today's Prompt:
-              </h4>
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
+              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block mb-1">
+                Today's Speaking Prompt:
+              </span>
               <p className="text-sm font-semibold text-white leading-relaxed">
                 {dayData.practicePrompt}
               </p>
             </div>
 
             {/* Audio Waveform Canvas */}
-            <div className="w-full h-24 bg-slate-950 rounded-xl border border-slate-800 mb-4 overflow-hidden relative flex items-center justify-center">
+            <div className="w-full h-24 bg-slate-950 rounded-2xl border-2 border-slate-800 overflow-hidden relative flex items-center justify-center">
               <canvas 
                 ref={canvasRef} 
                 width="380" 
                 height="96" 
                 className="w-full h-full"
               />
-              {!isRecording && !audioUrl && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 text-xs text-slate-500 font-medium">
-                  Press Record to Visualize Your Voice Frequency
+              {!isRecording && !prepCountdown && !audioUrl && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 text-xs text-slate-400 font-bold">
+                  Press Record to Visualize Your Voice
+                </div>
+              )}
+              {prepCountdown !== null && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-amber-400 text-slate-950 z-20 animate-pulse">
+                  <span className="text-4xl font-black font-mono">{prepCountdown}</span>
+                  <span className="text-xs font-black uppercase tracking-widest mt-1">
+                    {prepCountdown === 3 ? "Inhale deeply into diaphragm..." : prepCountdown === 2 ? "Formulate opening headline..." : "Speak with calm authority..."}
+                  </span>
                 </div>
               )}
             </div>
 
-            {/* Mic Controls */}
-            <div className="flex flex-col sm:flex-row items-center gap-3 mb-5">
-              {!isRecording ? (
+            {/* Low-Friction 1-Button Recording with 3-Second Countdown */}
+            <div>
+              {!isRecording && prepCountdown === null ? (
                 <button
-                  onClick={startRecording}
-                  className="w-full flex items-center justify-center space-x-2 px-5 py-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-sm shadow-lg shadow-rose-600/20 transition-all hover:scale-102"
+                  onClick={triggerRecordingWithCountdown}
+                  className="w-full min-h-[56px] flex items-center justify-center space-x-3 px-6 py-4 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-black text-base shadow-2xl shadow-rose-600/30 transition-all hover:scale-102 cursor-pointer"
+                  aria-label="Start Practice Recording with 3-second preparation countdown"
                 >
-                  <Mic className="w-4 h-4" />
-                  <span>Start Mic Recording</span>
+                  <Mic className="w-5 h-5" />
+                  <span>Start Practice Recording (with 3s Prep)</span>
                 </button>
-              ) : (
+              ) : isRecording ? (
                 <button
                   onClick={stopRecording}
-                  className="w-full flex items-center justify-center space-x-2 px-5 py-3 rounded-xl bg-rose-950 text-rose-300 border border-rose-500/40 hover:bg-rose-900 font-bold text-sm transition-all animate-pulse"
+                  className="w-full min-h-[56px] flex items-center justify-center space-x-3 px-6 py-4 rounded-2xl bg-slate-950 text-rose-300 border-2 border-rose-500 hover:bg-rose-950 font-black text-base transition-all animate-pulse cursor-pointer"
+                  aria-label="Stop Recording and Evaluate"
                 >
-                  <MicOff className="w-4 h-4 text-rose-400" />
-                  <span>Stop & Analyze Voice</span>
+                  <MicOff className="w-5 h-5 text-rose-400" />
+                  <span>Stop & Generate Executive Milestones</span>
                 </button>
+              ) : (
+                <div className="w-full min-h-[56px] flex items-center justify-center rounded-2xl bg-amber-400 text-slate-950 font-bold text-sm">
+                  Preparing Microphone ({prepCountdown}s)...
+                </div>
               )}
             </div>
 
             {/* Audio Playback Player */}
             {audioUrl && (
-              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 mb-4">
-                <span className="text-[11px] font-semibold text-slate-400 block mb-1">
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                <span className="text-xs font-bold text-slate-300 block mb-1">
                   Listen to Your Delivery (Self-Auditing):
                 </span>
-                <audio controls src={audioUrl} className="w-full h-9" />
+                <audio controls src={audioUrl} className="w-full h-10" />
               </div>
             )}
 
-            {/* Live Transcript & Real-Time Metrics */}
-            <div className="p-4 rounded-xl bg-slate-950/90 border border-slate-800 text-left">
-              <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-800">
-                <span className="text-xs font-bold text-slate-300">
-                  Real-Time Biometric Metrics (5 Core Pillars)
+            {/* ============================================================== */}
+            {/* ACTIONABLE MILESTONE FEEDBACK (Clear Milestones over numbers) */}
+            {/* ============================================================== */}
+            <div className="p-5 rounded-2xl bg-slate-950 border-2 border-slate-800 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span className="text-xs font-black uppercase tracking-wider text-amber-400">
+                  Actionable Milestones Achieved
                 </span>
-                <span className="text-xs text-slate-400">
-                  {analysis.wordCount} words
+                <span className="text-xs text-slate-400 font-bold">
+                  {analysis.wordCount} words spoken
                 </span>
               </div>
 
-              {/* 4-Column Live Metric Grid */}
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-center">
-                  <span className="text-[10px] text-slate-400 block">Signal-to-Noise</span>
-                  <span className={`text-sm font-bold ${analysis.scorecard?.signalToNoise.snrGrade === 'ELITE_EXECUTIVE' ? 'text-emerald-400' : 'text-amber-400'}`}>
-                    {analysis.scorecard?.signalToNoise.fillersPer100Words ?? 0} fillers/100w
-                  </span>
-                  <span className="text-[9px] text-slate-500 block">Target: &lt;1.0</span>
+              {/* Milestone Bullet Items */}
+              <div className="space-y-2 text-xs leading-relaxed">
+                
+                {/* Strategic Pausing Milestone */}
+                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-start space-x-2.5">
+                  <span className="text-base leading-none">⏸️</span>
+                  <div>
+                    <span className="font-bold text-white block">Strategic Pausing:</span>
+                    <span className="text-slate-300">
+                      You paused {sc?.executiveCadence.strategicPausesEstimated ?? 1} time{sc?.executiveCadence.strategicPausesEstimated !== 1 ? 's' : ''} strategically before key pivots. Deliberate silence commands the room.
+                    </span>
+                  </div>
                 </div>
 
-                <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-center">
-                  <span className="text-[10px] text-slate-400 block">Cadence (WPM)</span>
-                  <span className={`text-sm font-bold ${analysis.scorecard?.executiveCadence.inTargetZone ? 'text-emerald-400' : 'text-amber-400'}`}>
-                    {analysis.scorecard?.executiveCadence.wpm ?? 0} WPM
+                {/* Filler Words Milestone */}
+                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-start space-x-2.5">
+                  <span className="text-base leading-none">
+                    {analysis.fillerCount === 0 ? "✅" : "⚠️"}
                   </span>
-                  <span className="text-[9px] text-slate-500 block">Target: 135–155 WPM</span>
+                  <div>
+                    <span className="font-bold text-white block">Signal-to-Noise Ratio:</span>
+                    <span className="text-slate-300">
+                      {analysis.fillerCount === 0 
+                        ? "You delivered with zero verbal fillers (0.0/100w). Flawless executive signal."
+                        : `You used ${analysis.fillerCount} filler word${analysis.fillerCount > 1 ? 's' : ''} (${sc?.signalToNoise.fillersPer100Words ?? 0}/100w) in your summary — replace them with a 1.5s silent pause next take.`}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-center">
-                  <span className="text-[10px] text-slate-400 block">Conviction / Hedges</span>
-                  <span className={`text-sm font-bold ${(analysis.scorecard?.convictionDecisiveness.hedgingCount ?? 0) === 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {analysis.scorecard?.convictionDecisiveness.hedgingCount ?? 0} flagged
-                  </span>
-                  <span className="text-[9px] text-slate-500 block">Zero hedging</span>
+                {/* Thought Structuring Milestone */}
+                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-start space-x-2.5">
+                  <span className="text-base leading-none">🎯</span>
+                  <div>
+                    <span className="font-bold text-white block">Thought Structuring (PREP):</span>
+                    <span className="text-slate-300">
+                      {sc?.thoughtStructuring.wanderingDetected
+                        ? "Conversational wandering detected at the close — avoid trailing off; end with a crisp takeaway."
+                        : "You delivered your headline upfront and avoided conversational wandering."}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-center">
-                  <span className="text-[10px] text-slate-400 block">PREP Closing</span>
-                  <span className={`text-sm font-bold ${analysis.scorecard?.thoughtStructuring.crispClosingTakeawayPresent ? 'text-emerald-400' : 'text-amber-400'}`}>
-                    {analysis.scorecard?.thoughtStructuring.crispClosingTakeawayPresent ? "Crisp ✓" : "Rambling"}
-                  </span>
-                  <span className="text-[9px] text-slate-500 block">No trailing off</span>
+                {/* Cadence Milestone */}
+                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-start space-x-2.5">
+                  <span className="text-base leading-none">⏱️</span>
+                  <div>
+                    <span className="font-bold text-white block">Executive Cadence:</span>
+                    <span className="text-slate-300">
+                      {sc?.executiveCadence.inTargetZone 
+                        ? `Your speaking pace was ${sc?.executiveCadence.wpm} WPM — perfectly within the target executive zone (135–155 WPM).`
+                        : sc?.executiveCadence.pacingClassification === 'RUSHING'
+                        ? `Pacing reached ${sc?.executiveCadence.wpm} WPM. Take deliberate pauses to stay within the 135–155 WPM zone.`
+                        : `Pacing was ${sc?.executiveCadence.wpm} WPM. Speak with dynamic forward momentum.`}
+                    </span>
+                  </div>
                 </div>
+
+                {/* Conviction Milestone */}
+                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-start space-x-2.5">
+                  <span className="text-base leading-none">🛡️</span>
+                  <div>
+                    <span className="font-bold text-white block">Conviction & Decisiveness:</span>
+                    <span className="text-slate-300">
+                      {analysis.hedgesDetected.length === 0
+                        ? "You spoke with zero defensive hedging — full ownership of results."
+                        : `Flagged tentative phrases: "${analysis.hedgesDetected.join('", "')}". Replace with decisive ownership verbs.`}
+                    </span>
+                  </div>
+                </div>
+
               </div>
 
               {/* Transcript Display */}
-              <div className="text-xs text-slate-300 leading-relaxed max-h-32 overflow-y-auto pr-1">
-                {fullText ? (
-                  <span>{fullText}</span>
-                ) : (
-                  <span className="text-slate-500 italic">
-                    {speechSupported 
-                      ? "Speech transcript will populate live as you speak..." 
-                      : "Speech recognition unavailable in this browser; please use Chrome or Edge for live transcription."}
-                  </span>
-                )}
+              <div className="mt-2 pt-2 border-t border-slate-800 text-xs text-slate-400 italic">
+                {fullText ? `"${fullText}"` : "Spoken transcript will appear here live as you practice..."}
               </div>
             </div>
 
-          </div>
-
-          {/* Phase 3 Self-Auditing Rubric */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6">
-            <h4 className="text-sm font-bold text-white mb-4 flex items-center space-x-2 font-display">
-              <Award className="w-4 h-4 text-amber-400" />
-              <span>Executive Gravitas Audit (Score 1-5)</span>
-            </h4>
-
-            <div className="space-y-3 text-xs">
-              {[
-                { key: 'headline', label: "Headline First (BLUF)", desc: "Delivered direct thesis in first 5s" },
-                { key: 'brevity', label: "Pacing & Brevity", desc: "120-140 WPM without rushing or rambling" },
-                { key: 'resonance', label: "Chest Resonance", desc: "Warm, grounded tone, no nasal uptalk" },
-                { key: 'substance', label: "Strategic Altitude", desc: "Business metrics over tactical weeds" }
-              ].map((item) => (
-                <div key={item.key} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80">
-                  <div>
-                    <span className="font-semibold text-slate-200 block">{item.label}</span>
-                    <span className="text-[11px] text-slate-400">{item.desc}</span>
-                  </div>
-                  <div className="flex space-x-1">
-                    {[1, 2, 3, 4, 5].map((score) => (
-                      <button
-                        key={score}
-                        onClick={() => setRubricScores({ ...rubricScores, [item.key]: score })}
-                        className={`w-6 h-6 rounded text-[11px] font-bold transition-all ${
-                          rubricScores[item.key] === score
-                            ? 'bg-amber-400 text-slate-950 shadow-sm'
-                            : 'bg-slate-800 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        {score}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Daily Reflections Notes */}
-            <div className="mt-4">
-              <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-                Personal Practice Notes & Inflection Takeaways:
-              </label>
-              <textarea
-                value={notes}
-                onChange={handleNotesChange}
-                placeholder="Note down phrases that felt natural, or filler words you caught yourself saying..."
-                className="w-full h-20 bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 placeholder-slate-600 focus:ring-1 focus:ring-amber-500 focus:border-amber-500 resize-none"
-              />
-            </div>
-
-            {/* Completion Button */}
+            {/* Complete Day Button (Minimum 56px Tap Target) */}
             <button
               onClick={handleCompleteDay}
-              className={`w-full mt-5 flex items-center justify-center space-x-2 py-3 rounded-xl font-bold text-sm transition-all ${
+              className={`w-full min-h-[56px] flex items-center justify-center space-x-3 py-4 rounded-2xl font-black text-base transition-all cursor-pointer ${
                 isCompleted
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-lg shadow-amber-400/20 hover:scale-102'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-2 border-emerald-500/40'
+                  : 'bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-2xl shadow-amber-400/30 hover:scale-102'
               }`}
             >
-              <CheckCircle className="w-4 h-4" />
+              <CheckCircle className="w-5 h-5" />
               <span>{isCompleted ? "Day Completed (Click to Re-celebrate)" : "Mark Day 9-Minute Practice Complete"}</span>
             </button>
 
