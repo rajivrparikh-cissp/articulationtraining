@@ -1,25 +1,28 @@
-# ExecutiveVoice Security Architecture & Threat Model
+# Antigravity Security & Privacy Specification
 
-## 1. Zero Trust Principles for Executive Audio Data
-Executive interview simulations frequently contain proprietary business details, compensation targets, and confidential operational failures. All systems operate under Zero Trust assumptions.
+## 1. Zero-Trust Audio Pipeline
+- **Local In-Flight Encryption:** Audio clips recorded on Web (WebAudio/Opus) or Mobile (AVFoundation/AudioRecord) are encrypted in memory before streaming.
+- **Data in Transit:** Enforce TLS 1.3 with strict HSTS (`max-age=63072000; includeSubDomains; preload`).
+- **Data at Rest:** All transient audio chunks are stored in private Cloud Storage buckets with customer-managed encryption keys (AES-256).
 
-### Threat Model Overview
-- **Data in Transit:** TLS 1.3 mandatory on all ingress connections. WebSockets over WSS with mutual token handshakes.
-- **Data at Rest:** 
-  - User audio recordings are encrypted at rest using AES-256-GCM envelope encryption via Google Cloud KMS / AWS KMS.
-  - Transcript data is field-level encrypted before persistence.
-- **Ephemeral Processing Option:** Enterprise executive users may enable "Zero-Storage Mode", where audio buffers are processed entirely in memory and permanently purged immediately after diagnostic rubric scoring.
+## 2. Retention & Privacy Guardrails
+- **Ephemeral Audio Processing:** Voice recordings are transcribed, scored against the executive metrics, and permanently purged from object storage after 48 hours unless explicitly archived by the user.
+- **PII Stripping:** Voice transcripts pass through a regex/NER anonymization layer prior to executive scoring to strip names, specific company data, and financial indicators.
+
+## 3. Authentication & API Hardening
+- **Auth Standards:** FIDO2 / WebAuthn passkeys and biometric unlock (FaceID / Fingerprint) prioritized over SMS-based OTP.
+- **Rate Limiting:** Sliding-window rate limiter (Fastify Redis) set to 30 requests/minute per authenticated user on audio endpoints to block denial-of-wallet vectors.
+- **Content Security Policy (CSP):**
+  ```http
+  default-src 'self'; script-src 'self' 'nonce-...'; media-src 'self' blob:; connect-src 'self' https://api.antigravity.tech wss://api.antigravity.tech;
+  ```
 
 ---
 
-## 2. Authentication & Biometric Identity
-- **Passwordless WebAuthn / FIDO2:** Native Passkeys support for Apple FaceID, TouchID, and Windows Hello.
-- **Zero Third-Party Trackers:** No analytics or third-party advertising SDKs are permitted in either web or mobile apps.
-- **Strict Content Security Policy (CSP):** Strict nonce-based CSP preventing XSS and disallowing third-party audio capture injections.
+## 4. Threat Model & Zero-Trust Governance
 
----
-
-## 3. Automated Vulnerability Scanning & Supply Chain Protection
-- Automated Snyk SAST, SCA, and Container Vulnerability scanning on every pull request.
-- Daily dependency audits with automated Dependabot/Renovate alert triage.
-- Container base images are minimal distroless Node.js images with non-root runtime execution.
+### Attack Surface Minimization
+- **Non-Root Execution:** All containerized workloads run strictly under non-root users (`USER node`).
+- **Zero Third-Party Trackers:** No marketing trackers, external telemetry SDKs, or third-party behavioral scripts.
+- **Ephemeral Processing Option:** Enterprise executive users may activate "Zero-Storage Mode", where audio buffers are processed entirely in memory and immediately flushed post-scoring.
+- **Automated Security Scanning:** Continuous SAST, SCA, and container vulnerability scanning enforced via GitHub Actions and Snyk.
