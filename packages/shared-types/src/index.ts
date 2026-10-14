@@ -159,3 +159,36 @@ export interface UserExecutiveProfile {
   currentStreakDays: number;
   lastTrainedAt?: string;
 }
+
+/**
+ * Daily Articulation Session Telemetry & Reporting Interfaces
+ */
+export interface ArticulationSession {
+  sessionId: string;
+  userId: string;
+  dayNumber: number; // Day 1 to 28
+  timestamp: string;
+  durationSeconds: number; // Standard: 540 seconds (9 minutes)
+  promptId: string;
+}
+
+export interface MetricBreakdown {
+  wordsPerMinute: number; // Target: 135 - 155 WPM
+  fillerWordCount: number;
+  pauseCount: number;
+  averagePauseDurationSeconds: number;
+  executivePresenceScore: number; // 0 - 100
+  frameworkAdherence: {
+    framework: 'PREP' | 'STAR';
+    pointDeliveredFirst: boolean;
+    clearConclusion: boolean;
+  };
+}
+
+export interface UserFeedbackReport {
+  sessionId: string;
+  summary: string;
+  metrics: MetricBreakdown;
+  actionableDrills: string[];
+}
+
