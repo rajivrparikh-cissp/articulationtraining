@@ -53,6 +53,68 @@ export interface DailyCurriculumDay {
 }
 
 /**
+ * The 5 Core Capabilities of the Executive Articulation Engine
+ */
+export interface ThoughtStructuringScore {
+  score: number; // 0-100
+  wanderingDetected: boolean;
+  crispClosingTakeawayPresent: boolean;
+  closingPhraseDetected?: string;
+  prepComponents: {
+    pointIdentified: boolean;
+    reasonIdentified: boolean;
+    exampleIdentified: boolean;
+    closingPointIdentified: boolean;
+  };
+  feedback: string;
+}
+
+export interface SignalToNoiseScore {
+  fillersPer100Words: number;
+  snrGrade: 'ELITE_EXECUTIVE' | 'SENIOR_DIRECTOR' | 'MID_LEVEL_MANAGER' | 'RAMBLING_HAZARD';
+  totalFillerCount: number;
+  detectedFillers: Record<string, number>;
+  feedback: string;
+}
+
+export interface ExecutiveCadenceScore {
+  wpm: number;
+  targetWpmRange: '135-155 WPM';
+  inTargetZone: boolean;
+  pacingClassification: 'RUSHING' | 'OPTIMAL_EXECUTIVE' | 'HALTING_LETHARGIC';
+  strategicPausesEstimated: number; // 1.5s deliberate silence before pivots
+  pacingScore: number; // 0-100
+  feedback: string;
+}
+
+export interface ConvictionDecisivenessScore {
+  score: number; // 0-100
+  tentativeHedgesDetected: string[];
+  ownershipPhrasesDetected: string[];
+  hedgingCount: number;
+  ownershipCount: number;
+  feedback: string;
+}
+
+export interface TheFirst60SecondsScore {
+  score: number; // 0-100
+  verdict: 'EXECUTIVE_THESIS' | 'CHRONOLOGICAL_RECAP_TRAP';
+  chronologicalWordsDetected: string[];
+  commercialThesisDetected: boolean;
+  feedback: string;
+}
+
+export interface ExecutiveArticulationScorecard {
+  thoughtStructuring: ThoughtStructuringScore;
+  signalToNoise: SignalToNoiseScore;
+  executiveCadence: ExecutiveCadenceScore;
+  convictionDecisiveness: ConvictionDecisivenessScore;
+  theFirst60Seconds: TheFirst60SecondsScore;
+  overallExecutiveReadiness: number; // Composite 0-100
+  executiveRank: 'C-SUITE / VP READY' | 'SENIOR DIRECTOR' | 'ASPIRING MANAGER' | 'IN-THE-WEEDS';
+}
+
+/**
  * Biometric Audio & Speech Diagnostic Telemetry
  */
 export interface AudioDiagnosticMetrics {
@@ -64,11 +126,12 @@ export interface AudioDiagnosticMetrics {
   detectedFillers: Record<string, number>;
   verbalHedges: string[];
   pausesDetected: {
-    strategicPausesCount: number; // 2.0s - 3.5s silent pauses (positive)
-    anxiousHesitationsCount: number; // micro-pauses with filler words (negative)
+    strategicPausesCount: number; // 1.5s - 3.0s silent pauses
+    anxiousHesitationsCount: number;
   };
-  chestResonanceScore: number; // 1-100 scale derived from low harmonic energy ratio
+  chestResonanceScore: number;
   blufDeliveredInFirst5Seconds: boolean;
+  scorecard?: ExecutiveArticulationScorecard;
 }
 
 /**
@@ -83,27 +146,8 @@ export interface GravitasRubricScores {
 }
 
 /**
- * Live WebSocket Audio Streaming Message Contracts
+ * User Profile
  */
-export interface AudioChunkPayload {
-  sessionId: string;
-  sequenceNumber: number;
-  timestamp: number;
-  isFinal: boolean;
-  audioBase64OrBuffer: string;
-}
-
-export interface StreamingDiagnosticEvent {
-  sessionId: string;
-  partialTranscript: string;
-  currentWpm: number;
-  fillerAlert?: string;
-  suggestedExecutiveUpgrade?: {
-    managerPhrase: string;
-    executiveAlternative: string;
-  };
-}
-
 export interface UserExecutiveProfile {
   id: string;
   fullName: string;

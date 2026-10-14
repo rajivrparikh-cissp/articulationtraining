@@ -641,27 +641,45 @@ export default function DailyStudio({
             <div className="p-4 rounded-xl bg-slate-950/90 border border-slate-800 text-left">
               <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-800">
                 <span className="text-xs font-bold text-slate-300">
-                  Real-Time Voice Metrics
+                  Real-Time Biometric Metrics (5 Core Pillars)
                 </span>
                 <span className="text-xs text-slate-400">
                   {analysis.wordCount} words
                 </span>
               </div>
 
-              {/* Metrics Grid */}
+              {/* 4-Column Live Metric Grid */}
               <div className="grid grid-cols-2 gap-2 mb-3">
                 <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-center">
-                  <span className="text-[11px] text-slate-400 block">Filler Words</span>
-                  <span className={`text-base font-bold ${analysis.fillerCount === 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {analysis.fillerCount} {analysis.fillerCount === 0 ? '✓ Zero!' : 'detected'}
+                  <span className="text-[10px] text-slate-400 block">Signal-to-Noise</span>
+                  <span className={`text-sm font-bold ${analysis.scorecard?.signalToNoise.snrGrade === 'ELITE_EXECUTIVE' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {analysis.scorecard?.signalToNoise.fillersPer100Words ?? 0} fillers/100w
                   </span>
+                  <span className="text-[9px] text-slate-500 block">Target: &lt;1.0</span>
                 </div>
 
                 <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-center">
-                  <span className="text-[11px] text-slate-400 block">Verbal Hedges</span>
-                  <span className={`text-base font-bold ${analysis.hedgesDetected.length === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                    {analysis.hedgesDetected.length}
+                  <span className="text-[10px] text-slate-400 block">Cadence (WPM)</span>
+                  <span className={`text-sm font-bold ${analysis.scorecard?.executiveCadence.inTargetZone ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {analysis.scorecard?.executiveCadence.wpm ?? 0} WPM
                   </span>
+                  <span className="text-[9px] text-slate-500 block">Target: 135–155 WPM</span>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-center">
+                  <span className="text-[10px] text-slate-400 block">Conviction / Hedges</span>
+                  <span className={`text-sm font-bold ${(analysis.scorecard?.convictionDecisiveness.hedgingCount ?? 0) === 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {analysis.scorecard?.convictionDecisiveness.hedgingCount ?? 0} flagged
+                  </span>
+                  <span className="text-[9px] text-slate-500 block">Zero hedging</span>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 text-center">
+                  <span className="text-[10px] text-slate-400 block">PREP Closing</span>
+                  <span className={`text-sm font-bold ${analysis.scorecard?.thoughtStructuring.crispClosingTakeawayPresent ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {analysis.scorecard?.thoughtStructuring.crispClosingTakeawayPresent ? "Crisp ✓" : "Rambling"}
+                  </span>
+                  <span className="text-[9px] text-slate-500 block">No trailing off</span>
                 </div>
               </div>
 

@@ -1,68 +1,65 @@
 import { 
   auditTranscript, 
+  evaluateExecutiveArticulationEngine,
   FILLER_WORDS, 
   WEAK_VERBAL_HEDGES 
 } from '@executive-voice/audio-core';
 import { 
   AudioDiagnosticMetrics, 
   GravitasRubricScores, 
-  FrameworkType 
+  FrameworkType,
+  ExecutiveArticulationScorecard 
 } from '@executive-voice/shared-types';
 
 export interface EvaluationPayload {
   transcript: string;
   durationSeconds: number;
   frameworkUsed: FrameworkType;
+  isOpeningQuestion?: boolean;
 }
 
 export class ExecutiveEvaluationService {
   /**
-   * Evaluates spoken answer against C-Suite and Boardroom standards
+   * Evaluates spoken answer against Instruction 2: Executive Articulation Engine & Core Frameworks
+   * 1. Thought Structuring (PREP)
+   * 2. Signal-to-Noise Ratio (fillers / 100w)
+   * 3. Executive Cadence (135–155 WPM & strategic pauses)
+   * 4. Conviction & Decisiveness (Minimizing defensive hedging)
+   * 5. The First 60 Seconds (Executive thesis vs chronological recap)
    */
   public evaluateDelivery(payload: EvaluationPayload): {
     metrics: AudioDiagnosticMetrics;
+    scorecard: ExecutiveArticulationScorecard;
     rubric: GravitasRubricScores;
     actionableFeedback: string[];
     suggestedUpgrades: Array<{ original: string; upgraded: string }>;
   } {
+    const scorecard = evaluateExecutiveArticulationEngine(
+      payload.transcript, 
+      payload.durationSeconds, 
+      payload.isOpeningQuestion
+    );
+
     const metrics = auditTranscript(payload.transcript, payload.durationSeconds);
     const feedback: string[] = [];
     const upgrades: Array<{ original: string; upgraded: string }> = [];
 
-    // Headline / BLUF Evaluation
-    let headlineScore = metrics.blufDeliveredInFirst5Seconds ? 5 : 3;
-    if (!metrics.blufDeliveredInFirst5Seconds) {
-      feedback.push("Start with your conclusion (BLUF). State the business outcome in the first 5 seconds rather than providing background context first.");
-    }
+    // Synthesize feedback from the 5 capabilities
+    feedback.push(scorecard.thoughtStructuring.feedback);
+    feedback.push(scorecard.signalToNoise.feedback);
+    feedback.push(scorecard.executiveCadence.feedback);
+    feedback.push(scorecard.convictionDecisiveness.feedback);
+    feedback.push(scorecard.theFirst60Seconds.feedback);
 
-    // Brevity & Pacing Evaluation
-    let brevityScore = 5;
-    if (metrics.wpmClassification === 'RUSHING') {
-      brevityScore = 3;
-      feedback.push(`Speaking at ${metrics.wpm} WPM signals nervous urgency. Practice deliberate 2-second pauses to ground your pace between 120-140 WPM.`);
-    } else if (metrics.wpmClassification === 'HALTING') {
-      brevityScore = 3;
-      feedback.push(`Speaking at ${metrics.wpm} WPM lacks dynamic forward momentum. Structure your points using PREP before vocalizing.`);
-    }
-
-    // Filler Words & Hesitation
-    let resonanceScore = 5;
-    if (metrics.fillerCount > 0) {
-      resonanceScore = Math.max(1, 5 - metrics.fillerCount);
-      feedback.push(`Detected ${metrics.fillerCount} filler sounds. Replace verbal fillers with deliberate, comfortable silence.`);
-    }
-
-    // Strategic Altitude / Manager Weeds check
-    let altitudeScore = 4;
+    // Operational manager weeds detection
     const lower = payload.transcript.toLowerCase();
     const weedKeywords = ['jira', 'tickets', 'worked hard', 'put in hours', 'coding', 'my team did'];
     const weedDetected = weedKeywords.filter(k => lower.includes(k));
     if (weedDetected.length > 0) {
-      altitudeScore = 2;
       feedback.push(`Avoid operational task phrasing ("${weedDetected.join(', ')}"). Frame effort around business leverage, revenue protection, and organizational velocity.`);
     }
 
-    // Vocabulary replacements
+    // Vocabulary upgrades
     if (lower.includes('handled a lot')) {
       upgrades.push({ original: 'handled a lot of things', upgraded: 'orchestrated cross-functional execution' });
     }
@@ -73,20 +70,17 @@ export class ExecutiveEvaluationService {
       upgrades.push({ original: 'I think maybe we should', upgraded: 'The operational data points directly toward' });
     }
 
-    const compositeScore = Math.round(
-      (headlineScore * 0.3 + brevityScore * 0.25 + resonanceScore * 0.25 + altitudeScore * 0.2) * 20
-    );
-
     const rubric: GravitasRubricScores = {
-      headlineClarity: headlineScore,
-      brevityAndPacing: brevityScore,
-      chestResonance: resonanceScore,
-      strategicAltitude: altitudeScore,
-      overallExecutiveScore: compositeScore
+      headlineClarity: scorecard.thoughtStructuring.prepComponents.pointIdentified ? 5 : 3,
+      brevityAndPacing: scorecard.executiveCadence.inTargetZone ? 5 : 3,
+      chestResonance: Math.max(1, Math.min(5, Math.round(metrics.chestResonanceScore / 20))),
+      strategicAltitude: scorecard.theFirst60Seconds.commercialThesisDetected ? 5 : 3,
+      overallExecutiveScore: scorecard.overallExecutiveReadiness
     };
 
     return {
       metrics,
+      scorecard,
       rubric,
       actionableFeedback: feedback,
       suggestedUpgrades: upgrades
