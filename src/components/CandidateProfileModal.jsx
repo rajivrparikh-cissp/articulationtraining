@@ -188,9 +188,25 @@ export default function CandidateProfileModal({
             </p>
           )}
 
+          {typeof window !== 'undefined' && window.location.protocol === 'https:' && !['localhost', '127.0.0.1'].includes(window.location.hostname) && (
+            <div className="p-3.5 rounded-xl bg-slate-950 border border-amber-400/40 text-xs text-slate-300 space-y-1.5">
+              <div className="flex items-center space-x-1.5 text-amber-300 font-bold">
+                <Shield className="w-3.5 h-3.5 text-amber-400" />
+                <span>Cloud Run (HTTPS) vs. Local Laptop LLaMA 3.2:</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-slate-300">
+                You are currently viewing ExecutiveVoice hosted on <strong>Google Cloud Run</strong> (<code className="text-amber-200">https://...run.app</code>). Browser security (Mixed Content & Private Network Access policies) prevents external cloud sites from accessing your laptop's private port (<code className="text-amber-200">http://127.0.0.1:11434</code>).
+              </p>
+              <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-amber-200 space-y-1">
+                <span className="font-bold block text-white">How to connect local LLaMA 3.2:</span>
+                <span>Run <code className="bg-slate-950 px-1.5 py-0.5 rounded text-amber-300 font-mono">start-local-app.bat</code> in your project folder, then open <strong className="text-white">http://localhost:3000</strong>.</span>
+              </div>
+            </div>
+          )}
+
           {!ollamaStatus.online && !ollamaStatus.checking && (
             <p className="text-[11px] text-amber-300/80 leading-relaxed">
-              💡 <strong>To activate your second brain:</strong> Open your terminal and run <code className="bg-slate-950 px-1.5 py-0.5 rounded text-amber-200">ollama run llama3.2</code>. Zero data leaves your machine.
+              💡 <strong>On Cloud Run:</strong> The app automatically uses the integrated Heuristic AI Evaluator. For local LLaMA 3.2, run locally at <code className="bg-slate-950 px-1.5 py-0.5 rounded text-amber-200">http://localhost:3000</code>.
             </p>
           )}
         </div>
