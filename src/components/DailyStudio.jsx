@@ -18,11 +18,16 @@ import {
   ArrowRight,
   ShieldCheck,
   Target,
-  Zap
+  Zap,
+  Sliders,
+  Radio,
+  Edit3,
+  Check
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { soundEngine, analyzeTranscript } from '../utils/audioUtils';
 import { saveCompletedDay, saveDayNotes, getDayNotes } from '../utils/storage';
+import { getMicrophoneStream } from '../utils/useAudioDevices';
 
 const PHASES = [
   {
@@ -61,7 +66,11 @@ export default function DailyStudio({
   onDayCompleted, 
   totalDays,
   highContrast = false,
-  fontScale = 1.0
+  fontScale = 1.0,
+  selectedDeviceId = '',
+  devices = [],
+  onSelectDevice,
+  onOpenMicSettings
 }) {
   const [totalSeconds, setTotalSeconds] = useState(0); // 0 to 540 seconds (9 mins)
   const [timerRunning, setTimerRunning] = useState(false);
@@ -74,6 +83,12 @@ export default function DailyStudio({
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [liveAudioLevel, setLiveAudioLevel] = useState(0); // 0 - 100%
+  const [voiceActivityDetected, setVoiceActivityDetected] = useState(false);
+  const [isEditingTranscript, setIsEditingTranscript] = useState(false);
+  const [manualTranscriptInput, setManualTranscriptInput] = useState('');
+  const isRecordingRef = useRef(false);
+  const recordingStartTimeRef = useRef(0);
   
   // Rubric Scores (1-5)
   const [rubricScores, setRubricScores] = useState({
@@ -132,7 +147,7 @@ export default function DailyStudio({
     return () => clearInterval(interval);
   }, [timerRunning, totalSeconds, currentPhaseIndex]);
 
-  // Speech Recognition Setup
+  // Speech Recognition Setup with Auto-Restart and Resilience
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -159,8 +174,26 @@ export default function DailyStudio({
 
       if (finalStr) {
         setTranscript((prev) => prev + finalStr);
+        setVoiceActivityDetected(true);
       }
       setInterimTranscript(currentInterim);
+      if (currentInterim.trim().length > 0) {
+        setVoiceActivityDetected(true);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      console.log('DailyStudio SpeechRecognition notice:', event.error);
+      // 'no-speech' is triggered when the user pauses; do not stop recording
+    };
+
+    recognition.onend = () => {
+      // Auto-restart if user is still actively recording (fixes Chrome 2-second pause bug)
+      if (isRecordingRef.current) {
+        try {
+          recognition.start();
+        } catch {}
+      }
     };
 
     recognitionRef.current = recognition;
@@ -172,7 +205,7 @@ export default function DailyStudio({
     };
   }, []);
 
-  // Visualizer loop
+  // Visualizer loop + Real-Time RMS VU Level Meter
   const drawWaveform = () => {
     if (!analyserRef.current || !canvasRef.current) return;
     const canvas = canvasRef.current;
@@ -183,6 +216,22 @@ export default function DailyStudio({
 
     const render = () => {
       analyser.getByteTimeDomainData(dataArray);
+
+      // 1. Calculate real-time RMS for the VU Volume meter
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const norm = (dataArray[i] - 128) / 128.0;
+        sum += norm * norm;
+      }
+      const rms = Math.sqrt(sum / bufferLength);
+      const level = Math.min(100, Math.round(rms * 400));
+      setLiveAudioLevel(level);
+
+      if (level > 8) {
+        setVoiceActivityDetected(true);
+      }
+
+      // 2. Draw Waveform
       ctx.fillStyle = highContrast ? '#000000' : '#070a12';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.lineWidth = 3.0;
@@ -232,17 +281,27 @@ export default function DailyStudio({
     }, 1000);
   };
 
-  // Start Mic Recording
+  // Start Mic Recording with Selected Audio Device
   const executeStartRecording = async () => {
     try {
       soundEngine.init();
       audioChunksRef.current = [];
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      isRecordingRef.current = true;
+      setVoiceActivityDetected(false);
+      setLiveAudioLevel(0);
+      recordingStartTimeRef.current = Date.now();
+
+      // Acquire media stream using preferred microphone device
+      const stream = await getMicrophoneStream(selectedDeviceId);
       streamRef.current = stream;
 
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       const audioCtx = new AudioCtx();
       audioContextRef.current = audioCtx;
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 2048;
       analyserRef.current = analyser;
@@ -272,19 +331,26 @@ export default function DailyStudio({
       if (recognitionRef.current) {
         try {
           recognitionRef.current.start();
-        } catch {}
+        } catch (recErr) {
+          console.warn('Speech recognition start note:', recErr);
+        }
       }
 
       if (!timerRunning) {
         setTimerRunning(true);
       }
-    } catch {
-      alert("Microphone permission denied. You can still practice speaking out loud!");
+    } catch (err) {
+      isRecordingRef.current = false;
+      console.error('Recording initialization error:', err);
+      alert("Microphone permission denied or device busy. You can choose a different device in Microphone Settings, or type your answer!");
     }
   };
 
   // Stop Mic Recording
   const stopRecording = () => {
+    isRecordingRef.current = false;
+    setLiveAudioLevel(0);
+
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
     }
@@ -647,6 +713,82 @@ export default function DailyStudio({
               </p>
             </div>
 
+            {/* Microphone Hardware Selector & Live Input VU Level Bar */}
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-1.5 font-bold text-slate-200">
+                  <Mic className="w-4 h-4 text-amber-400" />
+                  <span>Audio Input Device:</span>
+                </div>
+                <button
+                  onClick={onOpenMicSettings}
+                  className="text-xs font-bold text-amber-400 hover:text-amber-300 inline-flex items-center space-x-1 cursor-pointer min-h-[36px] px-2 rounded-lg hover:bg-slate-900 transition-colors"
+                  title="Open Microphone Hardware Diagnostics"
+                >
+                  <Sliders className="w-3.5 h-3.5 mr-1" />
+                  <span>Hardware Test</span>
+                </button>
+              </div>
+
+              {/* Device Selector */}
+              <div>
+                <select
+                  value={selectedDeviceId}
+                  onChange={(e) => onSelectDevice && onSelectDevice(e.target.value)}
+                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-medium text-slate-100 cursor-pointer focus:outline-none focus:border-amber-400"
+                  aria-label="Select Input Microphone"
+                >
+                  {devices.length === 0 ? (
+                    <option value="">Default Microphone</option>
+                  ) : (
+                    devices.map((d, idx) => (
+                      <option key={d.deviceId || idx} value={d.deviceId}>
+                        {d.label || `Microphone ${idx + 1}`}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              {/* Real-time VU Input Level Bar */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400 font-semibold">Live Mic Signal</span>
+                  <span className={`font-mono font-bold ${
+                    voiceActivityDetected ? 'text-emerald-400' : 'text-slate-400'
+                  }`}>
+                    {isRecording 
+                      ? (voiceActivityDetected ? `🎤 Voice Active (${liveAudioLevel}%)` : `Listening (${liveAudioLevel}%)...`)
+                      : 'Mic Standby'}
+                  </span>
+                </div>
+                <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-800 p-0.5 flex items-center">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-75 ${
+                      liveAudioLevel > 70 
+                        ? 'bg-red-500' 
+                        : liveAudioLevel > 20 
+                        ? 'bg-amber-400' 
+                        : liveAudioLevel > 5 
+                        ? 'bg-emerald-400' 
+                        : 'bg-slate-800'
+                    }`}
+                    style={{ width: `${Math.max(liveAudioLevel, isRecording ? 4 : 0)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Silence Alert during recording */}
+              {isRecording && totalSeconds >= 4 && !voiceActivityDetected && (
+                <div className="p-3 rounded-xl bg-amber-950/70 border border-amber-500/50 text-amber-200 text-xs flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    <span>No audio signal detected from this mic. Check hardware mute or switch microphone above.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Audio Waveform Canvas */}
             <div className="w-full h-24 bg-slate-950 rounded-2xl border-2 border-slate-800 overflow-hidden relative flex items-center justify-center">
               <canvas 
@@ -792,9 +934,58 @@ export default function DailyStudio({
 
               </div>
 
-              {/* Transcript Display */}
-              <div className="mt-2 pt-2 border-t border-slate-800 text-xs text-slate-400 italic">
-                {fullText ? `"${fullText}"` : "Spoken transcript will appear here live as you practice..."}
+              {/* Transcript Display with Live Speech & Manual Edit/Type Option */}
+              <div className="mt-3 pt-3 border-t border-slate-800 text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-200 uppercase tracking-wider text-[11px] flex items-center space-x-1.5">
+                    <span>Spoken Words Transcript</span>
+                    {voiceActivityDetected && (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">
+                        Voice Detected
+                      </span>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (!isEditingTranscript) {
+                        setManualTranscriptInput(fullText);
+                      } else {
+                        setTranscript(manualTranscriptInput);
+                        setInterimTranscript('');
+                      }
+                      setIsEditingTranscript(!isEditingTranscript);
+                    }}
+                    className="text-xs text-amber-400 hover:text-amber-300 font-bold inline-flex items-center space-x-1 cursor-pointer min-h-[36px] px-2 rounded-lg hover:bg-slate-900 transition-colors"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 mr-1" />
+                    <span>{isEditingTranscript ? "Save & Score Words" : "Edit / Type Words"}</span>
+                  </button>
+                </div>
+
+                {isEditingTranscript ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={manualTranscriptInput}
+                      onChange={(e) => setManualTranscriptInput(e.target.value)}
+                      rows={3}
+                      placeholder="Type or paste your spoken response here to evaluate against PREP, WPM, and executive tone frameworks..."
+                      className="w-full p-3 rounded-xl bg-slate-900 border-2 border-amber-400 text-white text-xs font-mono focus:outline-none"
+                    />
+                    <p className="text-[11px] text-slate-400">
+                      💡 Tip: If your browser blocks speech-to-text, you can type or paste what you spoke directly into this box.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-slate-900/70 border border-slate-800 text-slate-200 text-xs leading-relaxed font-medium">
+                    {fullText 
+                      ? `"${fullText}"` 
+                      : (
+                        <span className="text-slate-400 italic">
+                          Spoken transcript will appear here live as you practice. You can also click "Edit / Type Words" to write or adjust your answer.
+                        </span>
+                      )}
+                  </div>
+                )}
               </div>
             </div>
 

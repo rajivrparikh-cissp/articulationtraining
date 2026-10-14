@@ -7,15 +7,17 @@ import {
   CheckCircle, 
   Sparkles, 
   ArrowRight, 
-  RotateCcw,
-  Gauge,
-  HelpCircle,
-  ShieldCheck,
-  Zap,
-  Target,
-  Clock,
-  Layers,
-  Award
+  RotateCcw, 
+  Gauge, 
+  HelpCircle, 
+  ShieldCheck, 
+  Zap, 
+  Target, 
+  Clock, 
+  Layers, 
+  Award,
+  Sliders,
+  Radio
 } from 'lucide-react';
 import { 
   analyzeTranscript, 
@@ -25,18 +27,31 @@ import {
   EXECUTIVE_VOCABULARY_DICTIONARY, 
   MOCK_INTERVIEW_QUESTIONS 
 } from '../data/curriculum';
+import { getMicrophoneStream } from '../utils/useAudioDevices';
 
-export default function VoiceStudio() {
+export default function VoiceStudio({
+  selectedDeviceId = '',
+  devices = [],
+  onSelectDevice,
+  onOpenMicSettings
+}) {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [customText, setCustomText] = useState('');
   const [selectedQuestion, setSelectedQuestion] = useState(MOCK_INTERVIEW_QUESTIONS[0]);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [liveAudioLevel, setLiveAudioLevel] = useState(0);
+  const [voiceDetected, setVoiceDetected] = useState(false);
 
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
+  const isRecordingRef = useRef(false);
+  const audioContextRef = useRef(null);
+  const streamRef = useRef(null);
+  const analyserRef = useRef(null);
+  const animFrameRef = useRef(null);
 
-  // Speech recognition
+  // Speech recognition with auto-restart resilience
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -54,6 +69,19 @@ export default function VoiceStudio() {
         }
         if (finalStr) {
           setTranscript((prev) => prev + finalStr);
+          setVoiceDetected(true);
+        }
+      };
+
+      recognition.onerror = (e) => {
+        console.log('VoiceStudio SpeechRecognition notice:', e.error);
+      };
+
+      recognition.onend = () => {
+        if (isRecordingRef.current) {
+          try {
+            recognition.start();
+          } catch {}
         }
       };
 
@@ -73,11 +101,60 @@ export default function VoiceStudio() {
     return () => clearInterval(timerRef.current);
   }, [isRecording]);
 
-  const startAnalysisSession = () => {
+  const startAnalysisSession = async () => {
     soundEngine.playExecutiveChime('start');
     setTranscript('');
     setElapsedSeconds(0);
+    setVoiceDetected(false);
+    setLiveAudioLevel(0);
+    isRecordingRef.current = true;
     setIsRecording(true);
+
+    try {
+      const stream = await getMicrophoneStream(selectedDeviceId);
+      streamRef.current = stream;
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioCtx();
+      audioContextRef.current = audioCtx;
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      analyserRef.current = analyser;
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      const checkVolume = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteTimeDomainData(dataArray);
+
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const norm = (dataArray[i] - 128) / 128.0;
+          sum += norm * norm;
+        }
+        const rms = Math.sqrt(sum / bufferLength);
+        const level = Math.min(100, Math.round(rms * 400));
+        setLiveAudioLevel(level);
+
+        if (level > 8) {
+          setVoiceDetected(true);
+        }
+
+        animFrameRef.current = requestAnimationFrame(checkVolume);
+      };
+
+      checkVolume();
+    } catch (micErr) {
+      console.warn('Could not initialize audio visualizer:', micErr);
+    }
+
     if (recognitionRef.current) {
       try {
         recognitionRef.current.start();
@@ -86,7 +163,23 @@ export default function VoiceStudio() {
   };
 
   const stopAnalysisSession = () => {
+    isRecordingRef.current = false;
     setIsRecording(false);
+    setLiveAudioLevel(0);
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close();
+      } catch {}
+      audioContextRef.current = null;
+    }
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+    }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -163,42 +256,101 @@ export default function VoiceStudio() {
             </span>
           </div>
 
-          {/* Recording Console */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-400 block">
-                  Diagnostic Microphone
-                </span>
-                <span className="text-sm font-semibold text-white">
-                  {isRecording ? "Live Listening & Pacing Tracking..." : "Ready for Articulation Drill"}
-                </span>
+            {/* Recording Console */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-400 block">
+                    Diagnostic Microphone
+                  </span>
+                  <span className="text-sm font-semibold text-white">
+                    {isRecording ? "Live Listening & Pacing Tracking..." : "Ready for Articulation Drill"}
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl font-mono font-bold text-white">
+                    {Math.floor(elapsedSeconds / 60)}:{(elapsedSeconds % 60).toString().padStart(2, '0')}
+                  </span>
+
+                  {!isRecording ? (
+                    <button
+                      onClick={startAnalysisSession}
+                      className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-amber-400 text-slate-950 font-bold text-xs hover:bg-amber-300 transition-colors shadow-lg shadow-amber-400/20 cursor-pointer"
+                    >
+                      <Mic className="w-4 h-4" />
+                      <span>Start Test</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={stopAnalysisSession}
+                      className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-500 transition-colors cursor-pointer"
+                    >
+                      <MicOff className="w-4 h-4" />
+                      <span>Stop Test</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl font-mono font-bold text-white">
-                  {Math.floor(elapsedSeconds / 60)}:{(elapsedSeconds % 60).toString().padStart(2, '0')}
-                </span>
+              {/* Hardware Device Selection & Live VU Input Meter */}
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400 font-semibold flex items-center space-x-1.5">
+                    <Mic className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Microphone:</span>
+                  </span>
+                  {onOpenMicSettings && (
+                    <button
+                      onClick={onOpenMicSettings}
+                      className="text-amber-400 hover:text-amber-300 font-bold text-[11px] inline-flex items-center space-x-1 cursor-pointer"
+                    >
+                      <Sliders className="w-3 h-3 mr-0.5" />
+                      <span>Test & Hardware Settings</span>
+                    </button>
+                  )}
+                </div>
 
-                {!isRecording ? (
-                  <button
-                    onClick={startAnalysisSession}
-                    className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-amber-400 text-slate-950 font-bold text-xs hover:bg-amber-300 transition-colors shadow-lg shadow-amber-400/20"
-                  >
-                    <Mic className="w-4 h-4" />
-                    <span>Start Test</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={stopAnalysisSession}
-                    className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-500 transition-colors"
-                  >
-                    <MicOff className="w-4 h-4" />
-                    <span>Stop Test</span>
-                  </button>
-                )}
+                <select
+                  value={selectedDeviceId}
+                  onChange={(e) => onSelectDevice && onSelectDevice(e.target.value)}
+                  className="w-full min-h-[40px] px-3 rounded-lg bg-slate-900 border border-slate-700 text-xs font-medium text-slate-200 cursor-pointer focus:outline-none focus:border-amber-400"
+                >
+                  {devices.length === 0 ? (
+                    <option value="">Default Microphone</option>
+                  ) : (
+                    devices.map((d, idx) => (
+                      <option key={d.deviceId || idx} value={d.deviceId}>
+                        {d.label || `Microphone ${idx + 1}`}
+                      </option>
+                    ))
+                  )}
+                </select>
+
+                {/* Level Bar */}
+                <div className="space-y-1 pt-1">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-400">Signal Activity</span>
+                    <span className={voiceDetected ? "text-emerald-400 font-bold" : "text-slate-500 font-mono"}>
+                      {isRecording ? (voiceDetected ? `Voice Detected (${liveAudioLevel}%)` : `Listening (${liveAudioLevel}%)...`) : "Standby"}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800 flex items-center">
+                    <div 
+                      className={`h-full transition-all duration-75 ${
+                        liveAudioLevel > 70 
+                          ? 'bg-red-500' 
+                          : liveAudioLevel > 20 
+                          ? 'bg-amber-400' 
+                          : liveAudioLevel > 5 
+                          ? 'bg-emerald-400' 
+                          : 'bg-slate-800'
+                      }`}
+                      style={{ width: `${Math.max(liveAudioLevel, isRecording ? 3 : 0)}%` }}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
 
             {/* Live Transcript / Custom Paste Area */}
             <div>

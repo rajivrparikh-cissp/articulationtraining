@@ -6,8 +6,10 @@ import VoiceStudio from './components/VoiceStudio';
 import ProgressDashboard from './components/ProgressDashboard';
 import ExecutivePlaybook from './components/ExecutivePlaybook';
 import VocalWarmup from './components/VocalWarmup';
+import MicSelectorModal from './components/MicSelectorModal';
 import { CURRICULUM } from './data/curriculum';
 import { getCompletedDays, getTotalMinutes } from './utils/storage';
+import { useAudioDevices } from './utils/useAudioDevices';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('studio');
@@ -15,8 +17,12 @@ export default function App() {
   const [completedDays, setCompletedDays] = useState(getCompletedDays());
   const [totalMinutes, setTotalMinutes] = useState(getTotalMinutes());
   const [warmupOpen, setWarmupOpen] = useState(false);
+  const [micModalOpen, setMicModalOpen] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
   const [fontScale, setFontScale] = useState(1.0); // 1.0 (100%), 1.25, 1.5, 2.0 (200%)
+
+  // Global Audio Input Device Management & Diagnostics
+  const audioDevices = useAudioDevices();
 
   useEffect(() => {
     const completed = getCompletedDays();
@@ -39,6 +45,11 @@ export default function App() {
   const currentDayData = CURRICULUM.find((d) => d.day === currentDayNumber) || CURRICULUM[0];
   const isCurrentDayDone = completedDays.includes(currentDayNumber);
 
+  const activeDevice = audioDevices.devices.find((d) => d.deviceId === audioDevices.selectedDeviceId);
+  const selectedDeviceLabel = activeDevice 
+    ? activeDevice.label 
+    : (audioDevices.devices.length > 0 ? audioDevices.devices[0].label : 'Default Microphone');
+
   return (
     <div className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${
       highContrast 
@@ -58,6 +69,9 @@ export default function App() {
         setHighContrast={setHighContrast}
         fontScale={fontScale}
         setFontScale={setFontScale}
+        onOpenMicSettings={() => setMicModalOpen(true)}
+        selectedDeviceLabel={selectedDeviceLabel}
+        deviceCount={audioDevices.devices.length}
       />
 
       {/* Main Tab Content */}
@@ -71,6 +85,10 @@ export default function App() {
             totalDays={CURRICULUM.length}
             highContrast={highContrast}
             fontScale={fontScale}
+            selectedDeviceId={audioDevices.selectedDeviceId}
+            devices={audioDevices.devices}
+            onSelectDevice={audioDevices.setSelectedDeviceId}
+            onOpenMicSettings={() => setMicModalOpen(true)}
           />
         )}
 
@@ -79,7 +97,12 @@ export default function App() {
         )}
 
         {activeTab === 'analyzer' && (
-          <VoiceStudio />
+          <VoiceStudio 
+            selectedDeviceId={audioDevices.selectedDeviceId}
+            devices={audioDevices.devices}
+            onSelectDevice={audioDevices.setSelectedDeviceId}
+            onOpenMicSettings={() => setMicModalOpen(true)}
+          />
         )}
 
         {activeTab === 'curriculum' && (
@@ -97,6 +120,24 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Hardware Microphone Diagnostics & Device Selection Modal */}
+      <MicSelectorModal
+        isOpen={micModalOpen}
+        onClose={() => setMicModalOpen(false)}
+        devices={audioDevices.devices}
+        selectedDeviceId={audioDevices.selectedDeviceId}
+        onSelectDevice={audioDevices.setSelectedDeviceId}
+        onRefreshDevices={audioDevices.refreshDevices}
+        isTesting={audioDevices.isTesting}
+        testAudioLevel={audioDevices.testAudioLevel}
+        testTranscript={audioDevices.testTranscript}
+        voiceDetected={audioDevices.voiceDetected}
+        errorMessage={audioDevices.errorMessage}
+        onStartTest={audioDevices.startTest}
+        onStopTest={audioDevices.stopTest}
+        highContrast={highContrast}
+      />
 
       {/* 60-Second Diaphragmatic Warmup Modal */}
       <VocalWarmup

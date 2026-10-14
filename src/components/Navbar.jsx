@@ -21,7 +21,10 @@ export default function Navbar({
   highContrast,
   setHighContrast,
   fontScale,
-  setFontScale
+  setFontScale,
+  onOpenMicSettings,
+  selectedDeviceLabel,
+  deviceCount = 1
 }) {
   const tabs = [
     { id: 'studio', label: '9-Min Daily Sprint', icon: Mic, badge: `Day ${currentDay}` },
@@ -75,9 +78,35 @@ export default function Navbar({
             </div>
           </div>
 
-          {/* Accessibility Controls & Metrics (WCAG AAA) */}
+          {/* Accessibility Controls & Hardware Diagnostics (WCAG AAA) */}
           <div className="flex items-center space-x-2 sm:space-x-3">
             
+            {/* Microphone Selector & Live Test (Placed before T 100% toggle per user specification) */}
+            <button
+              onClick={onOpenMicSettings}
+              className={`flex items-center justify-center min-h-[56px] px-3.5 sm:px-4 rounded-2xl border-2 transition-all cursor-pointer font-bold text-xs ${
+                highContrast
+                  ? 'bg-black hover:bg-slate-900 border-white text-white'
+                  : 'bg-slate-900 hover:bg-slate-800 border-slate-700 hover:border-amber-400/70 text-slate-200 hover:text-white'
+              }`}
+              title="Microphone Device Selector & Live Voice Test"
+              aria-label={`Microphone Settings: currently using ${selectedDeviceLabel || 'Default Microphone'}`}
+            >
+              <div className="relative mr-2 flex-shrink-0">
+                <Mic className="w-4 h-4 text-amber-400" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              </div>
+              <div className="text-left hidden sm:block max-w-[130px] md:max-w-[160px] truncate">
+                <span className="block text-[10px] text-slate-400 uppercase font-semibold leading-none">
+                  Mic ({deviceCount})
+                </span>
+                <span className="block text-xs font-bold text-amber-300 truncate leading-tight mt-0.5">
+                  {selectedDeviceLabel || 'Select Mic'}
+                </span>
+              </div>
+              <span className="sm:hidden text-xs">Mic</span>
+            </button>
+
             {/* Dynamic Font Scaler (100% - 200%) */}
             <button
               onClick={cycleFontScale}
