@@ -3,6 +3,10 @@
 
 ExecutiveVoice is an enterprise-grade monorepo engineered to coach managers into high-paying Director, Vice President, and C-Suite leadership roles. 
 
+🚀 **Live Production Deployment (Google Cloud Run):**  
+👉 **[https://articulation-training-135378541186.us-central1.run.app](https://articulation-training-135378541186.us-central1.run.app)**  
+*(Hosted on Google Cloud Platform • Project: `passiveincome01` • Region: `us-central1`)*
+
 > **Core Insight:**  
 > The way we speak is how interviewers and executive boards evaluate how we think. 
 > Most candidates rely on scripted or generic answers, or recite their resumes chronologically. 
