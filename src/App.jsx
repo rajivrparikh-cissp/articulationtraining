@@ -96,8 +96,8 @@ export default function App() {
         ollamaOnline={ollamaOnline}
       />
 
-      {/* Main Tab Content */}
-      <main className="flex-1 pb-16">
+      {/* Main Tab Content (Offset by 72 (18rem) on laptop/desktop for left sidebar) */}
+      <main className="flex-1 pb-16 lg:pl-72">
         {activeTab === 'studio' && (
           <DailyStudio
             dayData={currentDayData}
@@ -192,7 +192,7 @@ export default function App() {
       />
 
       {/* Executive Footer */}
-      <footer className={`border-t py-8 px-4 sm:px-6 text-center text-xs ${
+      <footer className={`border-t py-8 px-4 sm:px-6 text-center text-xs lg:pl-72 ${
         highContrast ? 'bg-black border-slate-800 text-slate-300' : 'bg-slate-950/80 border-slate-900 text-slate-400'
       }`}>
         <div className="max-w-4xl mx-auto space-y-3">
