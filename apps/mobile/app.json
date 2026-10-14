@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "ExecutiveVoice",
+    "slug": "executive-voice",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#070a12"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ai.executivevoice.mobile",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "ExecutiveVoice requires microphone access for real-time articulation drills, resonance measurement, and speech evaluation."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#070a12"
+      },
+      "package": "ai.executivevoice.mobile",
+      "permissions": ["RECORD_AUDIO"]
+    }
+  }
+}

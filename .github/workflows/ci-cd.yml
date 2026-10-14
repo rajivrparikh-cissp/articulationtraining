@@ -1,0 +1,59 @@
+name: Enterprise CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, staging ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Lint, Typecheck, and Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [ 20.x, 22.x ]
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install Monorepo Dependencies
+        run: npm ci
+
+      - name: Run Turborepo Lint & Style Checks
+        run: npx turbo run lint
+
+      - name: Run Unit & Integration Test Suites
+        run: npx turbo run test
+
+      - name: Monorepo Build Verification
+        run: npx turbo run build
+
+  container-build:
+    name: Container Security & Build Verification
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: actions/setup-buildx-action@v3
+
+      - name: Build Backend Microservice Container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/backend/Dockerfile
+          push: false
+          tags: executive-voice/backend:ci-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

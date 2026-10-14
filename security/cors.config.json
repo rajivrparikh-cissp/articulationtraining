@@ -1,0 +1,19 @@
+{
+  "allowedOrigins": [
+    "https://executivevoice.ai",
+    "https://*.executivevoice.ai",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000"
+  ],
+  "allowedMethods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  "allowedHeaders": [
+    "Content-Type",
+    "Authorization",
+    "X-Client-Version",
+    "X-Session-ID",
+    "X-Request-Timestamp"
+  ],
+  "exposedHeaders": ["X-Server-Processing-Time-MS"],
+  "allowCredentials": true,
+  "maxAge": 86400
+}

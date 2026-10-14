@@ -1,0 +1,76 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum CadenceStatus {
+  DORMANT
+  ACTIVE
+  HIGH_MOMENTUM
+  GRADUATED
+}
+
+enum TargetRole {
+  DIRECTOR
+  VICE_PRESIDENT
+  C_SUITE
+  GENERAL_MANAGER
+}
+
+model User {
+  id                    String         @id @default(uuid())
+  email                 String         @unique
+  fullName              String
+  currentRole           String
+  targetRole            TargetRole     @default(VICE_PRESIDENT)
+  cadenceStatus         CadenceStatus  @default(ACTIVE)
+  completedDays         Int[]          @default([])
+  totalPracticeMinutes  Int            @default(0)
+  currentStreakDays     Int            @default(0)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  sessions              DailySession[]
+  rubricAudits          RubricAudit[]
+
+  @@index([email])
+}
+
+model DailySession {
+  id                String       @id @default(uuid())
+  userId            String
+  dayNumber         Int          // 1 to 28
+  durationSeconds   Int
+  transcriptText    String?      @db.Text
+  wpm               Int
+  fillerCount       Int
+  strategicPauses   Int
+  audioVaultUri     String?      // Cloud KMS encrypted audio location
+  isZeroStorageMode Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rubricAudit       RubricAudit?
+
+  @@index([userId, dayNumber])
+}
+
+model RubricAudit {
+  id                    String       @id @default(uuid())
+  sessionId             String       @unique
+  userId                String
+  headlineClarity       Int          // 1 to 5
+  brevityAndPacing      Int          // 1 to 5
+  chestResonance        Int          // 1 to 5
+  strategicAltitude     Int          // 1 to 5
+  compositeScore        Int          // 1 to 100
+  executiveFeedback     String       @db.Text
+  createdAt             DateTime     @default(now())
+
+  session               DailySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user                  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

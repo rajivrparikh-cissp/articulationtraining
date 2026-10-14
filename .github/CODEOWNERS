@@ -1,0 +1,19 @@
+# Global Codeowners for ExecutiveVoice Enterprise Monorepo
+*                       @executive-voice-core-team
+
+# Security, Compliance and IAM Policies
+/security/              @security-architecture-team
+/docs/SECURITY.md       @security-architecture-team
+/docs/COMPLIANCE.md     @security-architecture-team
+/.github/workflows/     @devops-infra-team
+
+# Backend Services & STT Evaluation Engine
+/apps/backend/          @backend-lead @ml-evaluation-team
+
+# Frontend Applications & Design System
+/apps/web/              @frontend-core-team
+/apps/mobile/           @mobile-core-team
+/packages/ui/           @design-systems-team
+
+# Audio Core DSP & Processing
+/packages/audio-core/   @audio-dsp-engineers
