@@ -117,14 +117,59 @@ export const CRISP_TAKEAWAY_CLUES = [
  * Full Analysis conforming to Instruction 2: Executive Articulation Engine & Core Frameworks
  */
 export function analyzeTranscript(text, elapsedSeconds = 60) {
-  if (!text || typeof text !== 'string') {
+  if (!text || typeof text !== 'string' || !text.trim()) {
     return {
       wordCount: 0,
       fillerCount: 0,
       detectedFillers: {},
       hedgesDetected: [],
       wpm: 0,
-      scorecard: null
+      scorecard: {
+        thoughtStructuring: {
+          score: 0,
+          wanderingDetected: false,
+          crispClosingTakeawayPresent: false,
+          prepComponents: {
+            pointIdentified: false,
+            reasonIdentified: false,
+            exampleIdentified: false,
+            closingPointIdentified: false
+          },
+          feedback: "Speak into microphone or enter text to analyze thought structure."
+        },
+        signalToNoise: {
+          fillersPer100Words: 0,
+          snrGrade: 'STANDBY',
+          totalFillerCount: 0,
+          detectedFillers: {},
+          feedback: "Awaiting spoken response..."
+        },
+        executiveCadence: {
+          wpm: 0,
+          targetWpmRange: '135-155 WPM',
+          inTargetZone: false,
+          pacingClassification: 'STANDBY',
+          pacingScore: 0,
+          feedback: "Ready to measure cadence (target: 135-155 WPM)."
+        },
+        convictionDecisiveness: {
+          score: 0,
+          tentativeHedgesDetected: [],
+          ownershipPhrasesDetected: [],
+          hedgingCount: 0,
+          ownershipCount: 0,
+          feedback: "Awaiting speech to audit conviction and hedging."
+        },
+        theFirst60Seconds: {
+          score: 0,
+          verdict: 'WAITING',
+          chronologicalWordsDetected: [],
+          commercialThesisDetected: false,
+          feedback: "Speak your opening anchor."
+        },
+        overallExecutiveReadiness: 0,
+        executiveRank: 'STANDBY'
+      }
     };
   }
 

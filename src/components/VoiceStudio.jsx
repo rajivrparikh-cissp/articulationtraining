@@ -17,7 +17,9 @@ import {
   Layers, 
   Award,
   Sliders,
-  Radio
+  Radio,
+  Cpu,
+  RefreshCw
 } from 'lucide-react';
 import { 
   analyzeTranscript, 
@@ -501,23 +503,23 @@ export default function VoiceStudio({
                 <span className="text-xs font-bold text-white uppercase tracking-wider">1. Thought Structuring (PREP)</span>
               </div>
               <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                sc?.thoughtStructuring.wanderingDetected 
+                sc?.thoughtStructuring?.wanderingDetected 
                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' 
                   : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
               }`}>
-                {sc?.thoughtStructuring.wanderingDetected ? "Wandering Warning" : "Crisp Structure"}
+                {sc?.thoughtStructuring?.wanderingDetected ? "Wandering Warning" : "Crisp Structure"}
               </span>
             </div>
             <p className="text-[11px] text-slate-400">
               <strong>Focus:</strong> Point → Reason → Example → Point. Detects conversational wandering; penalizes answers without a crisp closing takeaway.
             </p>
             <div className="grid grid-cols-4 gap-1 pt-1 text-[10px] text-center">
-              <div className={`p-1 rounded ${sc?.thoughtStructuring.prepComponents.pointIdentified ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-950 text-slate-500'}`}>P - Point</div>
-              <div className={`p-1 rounded ${sc?.thoughtStructuring.prepComponents.reasonIdentified ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-950 text-slate-500'}`}>R - Reason</div>
-              <div className={`p-1 rounded ${sc?.thoughtStructuring.prepComponents.exampleIdentified ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-950 text-slate-500'}`}>E - Example</div>
-              <div className={`p-1 rounded ${sc?.thoughtStructuring.prepComponents.closingPointIdentified ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-950 text-slate-500'}`}>P - Closing Takeaway</div>
+              <div className={`p-1 rounded ${sc?.thoughtStructuring?.prepComponents?.pointIdentified ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-950 text-slate-500'}`}>P - Point</div>
+              <div className={`p-1 rounded ${sc?.thoughtStructuring?.prepComponents?.reasonIdentified ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-950 text-slate-500'}`}>R - Reason</div>
+              <div className={`p-1 rounded ${sc?.thoughtStructuring?.prepComponents?.exampleIdentified ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-950 text-slate-500'}`}>E - Example</div>
+              <div className={`p-1 rounded ${sc?.thoughtStructuring?.prepComponents?.closingPointIdentified ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-950 text-slate-500'}`}>P - Closing Takeaway</div>
             </div>
-            {sc && (
+            {sc?.thoughtStructuring?.feedback && (
               <p className="text-xs text-slate-300 italic pt-1 border-t border-slate-800/80">
                 "{sc.thoughtStructuring.feedback}"
               </p>
@@ -532,19 +534,19 @@ export default function VoiceStudio({
                 <span className="text-xs font-bold text-white uppercase tracking-wider">2. Signal-to-Noise Ratio</span>
               </div>
               <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                sc?.signalToNoise.snrGrade === 'ELITE_EXECUTIVE'
+                sc?.signalToNoise?.snrGrade === 'ELITE_EXECUTIVE'
                   ? 'bg-emerald-500/20 text-emerald-300'
-                  : sc?.signalToNoise.snrGrade === 'RAMBLING_HAZARD'
+                  : sc?.signalToNoise?.snrGrade === 'RAMBLING_HAZARD'
                   ? 'bg-rose-500/20 text-rose-300'
                   : 'bg-amber-500/20 text-amber-300'
               }`}>
-                {sc?.signalToNoise.fillersPer100Words ?? 0} fillers / 100w
+                {sc?.signalToNoise?.fillersPer100Words ?? 0} fillers / 100w
               </span>
             </div>
             <p className="text-[11px] text-slate-400">
               <strong>Focus:</strong> Verbal crutches & filler reduction. Tracks fillers (um, uh, like, sort of, throat-clearing) per 100 words.
             </p>
-            {sc && (
+            {sc?.signalToNoise?.feedback && (
               <p className="text-xs text-slate-300 italic pt-1 border-t border-slate-800/80">
                 "{sc.signalToNoise.feedback}"
               </p>
@@ -559,17 +561,17 @@ export default function VoiceStudio({
                 <span className="text-xs font-bold text-white uppercase tracking-wider">3. Executive Cadence</span>
               </div>
               <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${
-                sc?.executiveCadence.inTargetZone 
+                sc?.executiveCadence?.inTargetZone 
                   ? 'bg-emerald-500/20 text-emerald-300' 
                   : 'bg-amber-500/20 text-amber-300'
               }`}>
-                {sc?.executiveCadence.wpm ?? 0} WPM (Target: 135–155)
+                {sc?.executiveCadence?.wpm ?? 0} WPM (Target: 135–155)
               </span>
             </div>
             <p className="text-[11px] text-slate-400">
               <strong>Focus:</strong> Controlled pacing & strategic pausing. Target rate: 135–155 WPM. Penalizes rushing; rewards deliberate 1.5s silence before pivots.
             </p>
-            {sc && (
+            {sc?.executiveCadence?.feedback && (
               <p className="text-xs text-slate-300 italic pt-1 border-t border-slate-800/80">
                 "{sc.executiveCadence.feedback}"
               </p>
@@ -584,17 +586,17 @@ export default function VoiceStudio({
                 <span className="text-xs font-bold text-white uppercase tracking-wider">4. Conviction & Decisiveness</span>
               </div>
               <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                (sc?.convictionDecisiveness.hedgingCount ?? 0) === 0
+                (sc?.convictionDecisiveness?.hedgingCount ?? 0) === 0
                   ? 'bg-emerald-500/20 text-emerald-300'
                   : 'bg-rose-500/20 text-rose-300'
               }`}>
-                {sc?.convictionDecisiveness.hedgingCount ?? 0} Hedges Detected
+                {sc?.convictionDecisiveness?.hedgingCount ?? 0} Hedges Detected
               </span>
             </div>
             <p className="text-[11px] text-slate-400">
               <strong>Focus:</strong> Minimizing defensive hedging. Flags tentative language ("I think maybe", "I tried to", "hopefully") and rewards ownership.
             </p>
-            {sc && (
+            {sc?.convictionDecisiveness?.feedback && (
               <p className="text-xs text-slate-300 italic pt-1 border-t border-slate-800/80">
                 "{sc.convictionDecisiveness.feedback}"
               </p>
@@ -609,17 +611,17 @@ export default function VoiceStudio({
                 <span className="text-xs font-bold text-white uppercase tracking-wider">5. The First 60 Seconds</span>
               </div>
               <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                sc?.theFirst60Seconds.verdict === 'EXECUTIVE_THESIS'
+                sc?.theFirst60Seconds?.verdict === 'EXECUTIVE_THESIS'
                   ? 'bg-emerald-500/20 text-emerald-300'
                   : 'bg-rose-500/20 text-rose-300'
               }`}>
-                {sc?.theFirst60Seconds.verdict === 'EXECUTIVE_THESIS' ? "Executive Commercial Thesis" : "Chronological Resume Trap"}
+                {sc?.theFirst60Seconds?.verdict === 'EXECUTIVE_THESIS' ? "Executive Commercial Thesis" : "Chronological Resume Trap"}
               </span>
             </div>
             <p className="text-[11px] text-slate-400">
               <strong>Focus:</strong> High-impact "Tell Me About Yourself". Evaluates whether opening provides an executive thesis rather than chronological resume recap.
             </p>
-            {sc && (
+            {sc?.theFirst60Seconds?.feedback && (
               <p className="text-xs text-slate-300 italic pt-1 border-t border-slate-800/80">
                 "{sc.theFirst60Seconds.feedback}"
               </p>
