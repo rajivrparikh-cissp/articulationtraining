@@ -8,6 +8,7 @@ import ExecutivePlaybook from './components/ExecutivePlaybook';
 import VocalWarmup from './components/VocalWarmup';
 import MicSelectorModal from './components/MicSelectorModal';
 import CandidateProfileModal from './components/CandidateProfileModal';
+import VocabularyStudio from './components/VocabularyStudio';
 import { CURRICULUM } from './data/curriculum';
 import { getCompletedDays, getTotalMinutes } from './utils/storage';
 import { useAudioDevices } from './utils/useAudioDevices';
@@ -112,6 +113,17 @@ export default function App() {
             onOpenMicSettings={() => setMicModalOpen(true)}
             activeProfile={activeProfile}
             onOpenProfileModal={() => setProfileModalOpen(true)}
+          />
+        )}
+
+        {activeTab === 'vocabulary' && (
+          <VocabularyStudio
+            currentDay={currentDayNumber}
+            highContrast={highContrast}
+            fontScale={fontScale}
+            activeProfile={activeProfile}
+            selectedDeviceId={audioDevices.selectedDeviceId}
+            onOpenMicSettings={() => setMicModalOpen(true)}
           />
         )}
 

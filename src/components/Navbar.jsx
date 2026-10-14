@@ -10,7 +10,8 @@ import {
   Sun, 
   Type,
   Cpu,
-  User
+  User,
+  BookOpen
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -33,6 +34,7 @@ export default function Navbar({
 }) {
   const tabs = [
     { id: 'studio', label: '9-Min Daily Sprint', icon: Mic, badge: `Day ${currentDay}` },
+    { id: 'vocabulary', label: 'Executive Lexicon', icon: BookOpen, badge: 'Vocabulary & Quiz' },
     { id: 'builder', label: 'Tell Me About Yourself', icon: Sparkles, badge: 'Crucial' },
     { id: 'analyzer', label: 'Articulation Lab', icon: Sliders },
     { id: 'curriculum', label: '28-Day Roadmap', icon: Calendar, badge: `${completedCount}/28` },

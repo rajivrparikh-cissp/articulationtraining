@@ -31,6 +31,7 @@ import { soundEngine, analyzeTranscript } from '../utils/audioUtils';
 import { saveCompletedDay, saveDayNotes, getDayNotes } from '../utils/storage';
 import { getMicrophoneStream } from '../utils/useAudioDevices';
 import { streamExecutiveAudit } from '../utils/ollamaClient';
+import { getDailyWordsForDay } from '../data/executiveVocabulary';
 
 const PHASES = [
   {
@@ -436,6 +437,17 @@ export default function DailyStudio({
     });
   };
 
+  const dailyVocabWords = getDailyWordsForDay(dayData.day);
+
+  const handlePronounceVocab = (text) => {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.85;
+    utterance.pitch = 0.95;
+    window.speechSynthesis.speak(utterance);
+  };
+
   return (
     <div 
       className={`max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 ${
@@ -724,6 +736,57 @@ export default function DailyStudio({
                   "{dayData.managerVsLeader.leader}"
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* Today's Executive Vocabulary Drill Anchor */}
+          <div className="bg-slate-900/80 border-2 border-slate-800 rounded-3xl p-6 sm:p-8 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <h3 className="text-xl font-bold text-white flex items-center space-x-2 font-display">
+                <BookOpen className="w-5 h-5 text-amber-400" />
+                <span>Today's Executive Vocabulary Drill</span>
+              </h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2.5 py-0.5 rounded-full border border-amber-400/20">
+                Day {dayData.day} Lexicon
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-300">
+              Weave at least one of these high-altitude terms into today's vocal articulation sprint:
+            </p>
+
+            <div className="space-y-3">
+              {dailyVocabWords.map((vWord) => (
+                <div key={vWord.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-base font-black text-amber-400 font-display">{vWord.word}</span>
+                      <span className="text-xs text-slate-400 font-mono italic">{vWord.phonetic}</span>
+                      <span className="text-[10px] text-slate-400 uppercase font-bold bg-slate-900 px-2 py-0.5 rounded-full">
+                        {vWord.partOfSpeech}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handlePronounceVocab(vWord.word)}
+                      className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-400 transition-colors cursor-pointer"
+                      title="Pronounce Word"
+                    >
+                      <Volume2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    {vWord.definition}
+                  </p>
+                  <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800/80">
+                    <span className="text-[9px] uppercase font-bold text-amber-400 block mb-0.5">
+                      Boardroom Cadence:
+                    </span>
+                    <p className="text-[11px] text-slate-200 italic font-serif">
+                      "{vWord.boardroomContext}"
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

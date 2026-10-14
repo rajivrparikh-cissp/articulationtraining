@@ -109,3 +109,97 @@ export function saveUserProfile(profile) {
     // ignore
   }
 }
+
+// ==============================================================================
+// Executive Vocabulary & Quiz Persistence
+// ==============================================================================
+
+const VOCAB_KEYS = {
+  MASTERED_WORDS: 'exec_voice_mastered_words_v1',
+  QUIZ_HISTORY: 'exec_voice_quiz_history_v1',
+  CUSTOM_VOCAB: 'exec_voice_custom_vocab_v1',
+  DAILY_PRACTICE: 'exec_voice_vocab_practice_v1'
+};
+
+export function getMasteredWords() {
+  try {
+    const raw = localStorage.getItem(VOCAB_KEYS.MASTERED_WORDS);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function toggleMasteredWord(wordId) {
+  try {
+    const list = getMasteredWords();
+    const index = list.indexOf(wordId);
+    let updated;
+    if (index >= 0) {
+      updated = list.filter((id) => id !== wordId);
+    } else {
+      updated = [...list, wordId];
+    }
+    localStorage.setItem(VOCAB_KEYS.MASTERED_WORDS, JSON.stringify(updated));
+    return updated;
+  } catch {
+    return [];
+  }
+}
+
+export function getVocabQuizHistory() {
+  try {
+    const raw = localStorage.getItem(VOCAB_KEYS.QUIZ_HISTORY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveVocabQuizResult(result) {
+  try {
+    const history = getVocabQuizHistory();
+    const entry = {
+      ...result,
+      id: Date.now().toString(),
+      date: new Date().toISOString()
+    };
+    const updated = [entry, ...history].slice(0, 50); // Keep last 50
+    localStorage.setItem(VOCAB_KEYS.QUIZ_HISTORY, JSON.stringify(updated));
+    return updated;
+  } catch {
+    return [];
+  }
+}
+
+export function getCustomVocabList() {
+  try {
+    const raw = localStorage.getItem(VOCAB_KEYS.CUSTOM_VOCAB);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomVocabTerm(term) {
+  try {
+    const existing = getCustomVocabList();
+    const filtered = existing.filter((t) => t.id !== term.id && t.word.toLowerCase() !== term.word.toLowerCase());
+    const updated = [term, ...filtered];
+    localStorage.setItem(VOCAB_KEYS.CUSTOM_VOCAB, JSON.stringify(updated));
+    return updated;
+  } catch {
+    return [];
+  }
+}
+
+export function deleteCustomVocabTerm(termId) {
+  try {
+    const existing = getCustomVocabList();
+    const updated = existing.filter((t) => t.id !== termId);
+    localStorage.setItem(VOCAB_KEYS.CUSTOM_VOCAB, JSON.stringify(updated));
+    return updated;
+  } catch {
+    return [];
+  }
+}
